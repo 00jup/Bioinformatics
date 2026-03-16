@@ -1,0 +1,29 @@
+#!/bin/sh
+# pre-push hook: ruff로 코드 품질 검사
+# push 전에 자동으로 formatter/linter 검사 실행
+
+VENV=".venv"
+
+if [ ! -f "$VENV/bin/ruff" ]; then
+    echo "⚠ ruff가 설치되지 않았습니다. make init을 먼저 실행하세요."
+    exit 1
+fi
+
+echo "🔍 코드 포맷 검사 중..."
+$VENV/bin/ruff format --check src/
+FORMAT_EXIT=$?
+
+echo "🔍 린트 검사 중..."
+$VENV/bin/ruff check src/
+LINT_EXIT=$?
+
+if [ $FORMAT_EXIT -ne 0 ] || [ $LINT_EXIT -ne 0 ]; then
+    echo ""
+    echo "❌ 코드 품질 검사 실패!"
+    echo "   포맷 수정: make format"
+    echo "   린트 확인: make lint"
+    exit 1
+fi
+
+echo "✅ 코드 품질 검사 통과!"
+exit 0

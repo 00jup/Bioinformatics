@@ -1,0 +1,11 @@
+{
+  "feature_set": "B",
+  "best_single_model": "Random Forest",
+  "final_model": "Ensemble",
+  "ensemble_components": [
+    "Random Forest",
+    "LightGBM",
+    "XGBoost"
+  ],
+  "best_auc": 0.9082993659420289
+}
