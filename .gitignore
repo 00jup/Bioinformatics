@@ -11,6 +11,9 @@ build/
 venv/
 env/
 
+# Conda
+.conda/
+
 # Data (large files)
 data/raw/
 data/processed/
