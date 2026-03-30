@@ -136,27 +136,31 @@ def explain_with_shap(model, feature_df, feature_names):
                 desc_name, unit, desc = DESCRIPTOR_INFO[name]
                 unit_str = f" {unit}" if unit else ""
                 direction = "독성 증가" if shap_val > 0 else "독성 감소"
-                reasons.append({
-                    "feature": name,
-                    "display_name": desc_name,
-                    "value": raw_val,
-                    "unit": unit_str,
-                    "shap": shap_val,
-                    "direction": direction,
-                    "description": desc,
-                })
+                reasons.append(
+                    {
+                        "feature": name,
+                        "display_name": desc_name,
+                        "value": raw_val,
+                        "unit": unit_str,
+                        "shap": shap_val,
+                        "direction": direction,
+                        "description": desc,
+                    }
+                )
             elif name.startswith("Morgan_") and raw_val == 1:
                 # 활성화된 fingerprint bit만 표시
                 direction = "독성 증가" if shap_val > 0 else "독성 감소"
-                reasons.append({
-                    "feature": name,
-                    "display_name": f"구조 특성 ({name})",
-                    "value": int(raw_val),
-                    "unit": "",
-                    "shap": shap_val,
-                    "direction": direction,
-                    "description": "분자 내 특정 하위구조 존재",
-                })
+                reasons.append(
+                    {
+                        "feature": name,
+                        "display_name": f"구조 특성 ({name})",
+                        "value": int(raw_val),
+                        "unit": "",
+                        "shap": shap_val,
+                        "direction": direction,
+                        "description": "분자 내 특정 하위구조 존재",
+                    }
+                )
 
             if len(reasons) >= 5:
                 break
@@ -185,26 +189,30 @@ def predict_and_explain(smiles_list, model, feature_set="B"):
 
     for i, smi in enumerate(smiles_list):
         if i not in valid_set:
-            results.append({
-                "smiles": smi,
-                "prediction": -1,
-                "probability": None,
-                "label": "변환 실패",
-                "reasons": [],
-            })
+            results.append(
+                {
+                    "smiles": smi,
+                    "prediction": -1,
+                    "probability": None,
+                    "label": "변환 실패",
+                    "reasons": [],
+                }
+            )
             continue
 
         vi = valid_indices.index(i)
         pred = int(predictions[vi])
         prob = float(probabilities[vi])
 
-        results.append({
-            "smiles": smi,
-            "prediction": pred,
-            "probability": prob,
-            "label": "독성 (DILI)" if pred == 1 else "비독성",
-            "reasons": explanations[vi] if explanations else [],
-        })
+        results.append(
+            {
+                "smiles": smi,
+                "prediction": pred,
+                "probability": prob,
+                "label": "독성 (DILI)" if pred == 1 else "비독성",
+                "reasons": explanations[vi] if explanations else [],
+            }
+        )
 
     return results
 
@@ -216,7 +224,7 @@ def format_result(result, index=None):
 
     if result["prediction"] == -1:
         lines.append(f"{prefix}SMILES: {result['smiles']}")
-        lines.append(f"  -> 유효하지 않은 SMILES (변환 실패)")
+        lines.append("  -> 유효하지 않은 SMILES (변환 실패)")
         return "\n".join(lines)
 
     prob = result["probability"]
@@ -226,19 +234,17 @@ def format_result(result, index=None):
     lines.append(f"  예측: {label} (독성 확률: {prob:.1%})")
 
     if result["reasons"]:
-        lines.append(f"  근거:")
+        lines.append("  근거:")
         for r in result["reasons"]:
             arrow = "+" if r["shap"] > 0 else "-"
             if r["feature"] in DESCRIPTOR_INFO:
-                val_str = f"{r['value']:.2f}" if isinstance(r['value'], float) else str(r['value'])
+                val_str = f"{r['value']:.2f}" if isinstance(r["value"], float) else str(r["value"])
                 lines.append(
                     f"    [{arrow}] {r['display_name']} = {val_str}{r['unit']} "
                     f"({r['direction']}) — {r['description']}"
                 )
             else:
-                lines.append(
-                    f"    [{arrow}] {r['display_name']} ({r['direction']})"
-                )
+                lines.append(f"    [{arrow}] {r['display_name']} ({r['direction']})")
 
     return "\n".join(lines)
 
