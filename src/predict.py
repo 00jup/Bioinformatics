@@ -54,24 +54,65 @@ def load_model(model_path=None):
 
 
 def read_smiles_from_file(input_path, column=None):
-    """파일에서 SMILES 추출."""
+    """파일에서 SMILES + 이름 추출. (names, smiles) 튜플 리스트 반환."""
     ext = os.path.splitext(input_path)[1].lower()
 
     if ext == ".sdf":
         suppl = Chem.SDMolSupplier(input_path)
-        return [Chem.MolToSmiles(mol) if mol else None for mol in suppl]
+        smiles = [Chem.MolToSmiles(mol) if mol else None for mol in suppl]
+        return [None] * len(smiles), smiles
 
     elif ext == ".csv":
         df = pd.read_csv(input_path)
+
+        # SMILES 컬럼 찾기
+        smiles_col = None
         for col in ([column] if column else []) + ["SMILES", "smiles", "Drug"]:
             if col and col in df.columns:
-                return df[col].tolist()
-        return df.iloc[:, 0].tolist()
+                smiles_col = col
+                break
+        if smiles_col is None:
+            smiles_col = df.columns[0]
+
+        # 이름 컬럼 찾기
+        name_col = None
+        for col in df.columns:
+            col_lower = str(col).lower()
+            if (
+                col_lower in ("name", "drug_name", "drug_id")
+                or "유발" in str(col)
+                or "억제" in str(col)
+            ):
+                name_col = col
+                break
+        # 이름 컬럼 없으면 SMILES가 아닌 문자열 컬럼 사용
+        if name_col is None:
+            for col in df.columns:
+                if col != smiles_col and df[col].dtype == object:
+                    name_col = col
+                    break
+
+        # SMILES 공백 제거 + 섹션 헤더 필터링
+        names = []
+        smiles = []
+        for _, row in df.iterrows():
+            smi = str(row[smiles_col]).strip()
+            # 섹션 헤더 행 건너뛰기 (SMILES 값이 "SMILES"인 경우)
+            if smi.upper() == "SMILES" or not smi or smi == "nan":
+                continue
+            smiles.append(smi)
+            if name_col is not None:
+                names.append(str(row[name_col]).strip())
+            else:
+                names.append(None)
+
+        return names, smiles
 
     else:
         with open(input_path, "r") as f:
             lines = [line.strip() for line in f if line.strip()]
-        return [line.split("\t")[0].split(",")[0] for line in lines]
+        smiles = [line.split("\t")[0].split(",")[0] for line in lines]
+        return [None] * len(smiles), smiles
 
 
 def explain_with_shap(model, feature_df, feature_names):
@@ -170,8 +211,11 @@ def explain_with_shap(model, feature_df, feature_names):
     return explanations
 
 
-def predict_and_explain(smiles_list, model, feature_set="B"):
+def predict_and_explain(smiles_list, model, names=None, feature_set="B"):
     """SMILES 리스트에 대해 예측 + 설명 수행."""
+    if names is None:
+        names = [None] * len(smiles_list)
+
     # Feature 추출
     feature_df, valid_indices = extract_features(smiles_list, feature_set=feature_set)
     feature_names = feature_df.columns.tolist()
@@ -191,6 +235,7 @@ def predict_and_explain(smiles_list, model, feature_set="B"):
         if i not in valid_set:
             results.append(
                 {
+                    "name": names[i],
                     "smiles": smi,
                     "prediction": -1,
                     "probability": None,
@@ -206,6 +251,7 @@ def predict_and_explain(smiles_list, model, feature_set="B"):
 
         results.append(
             {
+                "name": names[i],
                 "smiles": smi,
                 "prediction": pred,
                 "probability": prob,
@@ -222,15 +268,20 @@ def format_result(result, index=None):
     lines = []
     prefix = f"[{index}] " if index is not None else ""
 
+    name = result.get("name")
+    name_str = f" ({name})" if name and name != "nan" else ""
+
     if result["prediction"] == -1:
-        lines.append(f"{prefix}SMILES: {result['smiles']}")
+        lines.append(f"{prefix}{result['smiles']}{name_str}")
         lines.append("  -> 유효하지 않은 SMILES (변환 실패)")
         return "\n".join(lines)
 
     prob = result["probability"]
     label = result["label"]
 
-    lines.append(f"{prefix}SMILES: {result['smiles']}")
+    lines.append(f"{prefix}{name_str.strip() or result['smiles']}")
+    if name_str:
+        lines.append(f"  SMILES: {result['smiles']}")
     lines.append(f"  예측: {label} (독성 확률: {prob:.1%})")
 
     if result["reasons"]:
@@ -249,6 +300,42 @@ def format_result(result, index=None):
     return "\n".join(lines)
 
 
+def format_markdown_table(results):
+    """Notion/마크다운 붙여넣기용 테이블 생성."""
+    lines = []
+    lines.append("| 약물명 | SMILES | 예측 | 독성 확률 | 주요 근거 |")
+    lines.append("|--------|--------|------|-----------|-----------|")
+
+    for r in results:
+        name = r.get("name") or ""
+        if name == "nan":
+            name = ""
+        smiles = f"`{r['smiles']}`"
+
+        if r["prediction"] == -1:
+            lines.append(f"| {name} | {smiles} | SMILES 오류 | - | - |")
+            continue
+
+        label = r["label"]
+        prob = f"{r['probability']:.1%}"
+
+        # 근거 요약 (상위 3개)
+        reason_parts = []
+        for reason in r["reasons"][:3]:
+            arrow = "+" if reason["shap"] > 0 else "-"
+            if reason["feature"] in DESCRIPTOR_INFO:
+                val = reason["value"]
+                val_str = f"{val:.1f}" if isinstance(val, float) else str(val)
+                reason_parts.append(f"[{arrow}] {reason['display_name']}={val_str}")
+            else:
+                reason_parts.append(f"[{arrow}] {reason['display_name']}")
+        reasons_str = ", ".join(reason_parts) if reason_parts else "-"
+
+        lines.append(f"| {name} | {smiles} | {label} | {prob} | {reasons_str} |")
+
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="DILI 독성 예측 — SMILES 입력 → 예측 + 이유",
@@ -257,24 +344,35 @@ def main():
     parser.add_argument("smiles", nargs="*", help="예측할 SMILES 문자열 (여러 개 가능)")
     parser.add_argument("-f", "--file", default=None, help="SMILES가 담긴 입력 파일")
     parser.add_argument("-o", "--output", default=None, help="결과 저장 파일")
+    parser.add_argument(
+        "--format", choices=["text", "md"], default="text", help="출력 형식 (text/md)"
+    )
     parser.add_argument("--model", default=None, help="모델 파일 경로")
     parser.add_argument("--column", default=None, help="CSV의 SMILES 컬럼명")
     parser.add_argument("--feature-set", default="B", help="Feature set (A/B/C/D)")
     args = parser.parse_args()
 
     # SMILES 수집
+    names = None
     smiles_list = []
     if args.smiles:
         smiles_list = args.smiles
     elif args.file:
-        smiles_list = read_smiles_from_file(args.file, column=args.column)
+        names, smiles_list = read_smiles_from_file(args.file, column=args.column)
     else:
         parser.print_help()
         print("\nSMILES를 직접 입력하거나 -f 옵션으로 파일을 지정하세요.")
         sys.exit(1)
 
     # 유효성 체크
-    smiles_list = [s for s in smiles_list if s and str(s).strip()]
+    if names:
+        filtered = [(n, s) for n, s in zip(names, smiles_list) if s and str(s).strip()]
+        if filtered:
+            names, smiles_list = zip(*filtered)
+            names, smiles_list = list(names), list(smiles_list)
+    else:
+        smiles_list = [s for s in smiles_list if s and str(s).strip()]
+
     if not smiles_list:
         print("오류: 입력된 SMILES가 없습니다.")
         sys.exit(1)
@@ -283,9 +381,19 @@ def main():
     model = load_model(args.model)
 
     # 예측 + 설명
-    results = predict_and_explain(smiles_list, model, args.feature_set)
+    results = predict_and_explain(smiles_list, model, names=names, feature_set=args.feature_set)
 
-    # 출력
+    # 마크다운 테이블 출력 (Notion 붙여넣기용)
+    if args.format == "md":
+        md = format_markdown_table(results)
+        print(md)
+        if args.output:
+            with open(args.output, "w") as f:
+                f.write(md + "\n")
+            print(f"\n결과 저장: {args.output}")
+        return
+
+    # 기본 텍스트 출력
     print(f"\n{'=' * 60}")
     print(f"  DILI 독성 예측 결과 ({len(results)}개)")
     print(f"{'=' * 60}")

@@ -8,6 +8,7 @@ import os
 
 import pandas as pd
 from rdkit import Chem, RDLogger
+from sklearn.model_selection import train_test_split
 
 # RDKit 경고 메시지 억제
 RDLogger.logger().setLevel(RDLogger.ERROR)
@@ -87,6 +88,33 @@ def clean_data(df):
     return df
 
 
+def split_dataset(df, test_ratio=0.15, val_ratio=0.15, random_state=42):
+    """데이터를 Train/Validation/Test로 분할."""
+    # 먼저 Test 분리
+    df_trainval, df_test = train_test_split(
+        df, test_size=test_ratio, random_state=random_state, stratify=df["Label"]
+    )
+
+    # 나머지에서 Validation 분리
+    val_size = val_ratio / (1 - test_ratio)
+    df_train, df_val = train_test_split(
+        df_trainval, test_size=val_size, random_state=random_state, stratify=df_trainval["Label"]
+    )
+
+    print("\n데이터 분할:")
+    print(
+        f"  Train:      {len(df_train)}개 (독성={df_train['Label'].sum()}, 비독성={(df_train['Label'] == 0).sum()})"
+    )
+    print(
+        f"  Validation: {len(df_val)}개 (독성={df_val['Label'].sum()}, 비독성={(df_val['Label'] == 0).sum()})"
+    )
+    print(
+        f"  Test:       {len(df_test)}개 (독성={df_test['Label'].sum()}, 비독성={(df_test['Label'] == 0).sum()})"
+    )
+
+    return df_train, df_val, df_test
+
+
 def prepare_dataset():
     """전체 데이터 준비 파이프라인 실행."""
     # TDC 데이터 다운로드
@@ -100,11 +128,30 @@ def prepare_dataset():
     # 정제
     df_clean = clean_data(df)
 
-    # 저장
+    # 전체 데이터 저장
     os.makedirs(PROCESSED_DIR, exist_ok=True)
     processed_path = os.path.join(PROCESSED_DIR, "dili_dataset.csv")
     df_clean.to_csv(processed_path, index=False)
     print(f"\n정제된 데이터 저장: {processed_path}")
+
+    # Train/Validation/Test 분할
+    df_train, df_val, df_test = split_dataset(df_clean)
+
+    train_dir = os.path.join(PROJECT_ROOT, "data", "train")
+    val_dir = os.path.join(PROJECT_ROOT, "data", "validation")
+    test_dir = os.path.join(PROJECT_ROOT, "data", "test")
+    os.makedirs(train_dir, exist_ok=True)
+    os.makedirs(val_dir, exist_ok=True)
+    os.makedirs(test_dir, exist_ok=True)
+
+    df_train.to_csv(os.path.join(train_dir, "dili_train.csv"), index=False)
+    df_val.to_csv(os.path.join(val_dir, "dili_val.csv"), index=False)
+    df_test.to_csv(os.path.join(test_dir, "dili_test.csv"), index=False)
+
+    print("\n분할 데이터 저장:")
+    print(f"  {train_dir}/dili_train.csv")
+    print(f"  {val_dir}/dili_val.csv")
+    print(f"  {test_dir}/dili_test.csv")
 
     return df_clean
 

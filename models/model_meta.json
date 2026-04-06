@@ -4,8 +4,8 @@
   "final_model": "Ensemble",
   "ensemble_components": [
     "Random Forest",
-    "LightGBM",
-    "XGBoost"
+    "XGBoost",
+    "LightGBM"
   ],
-  "best_auc": 0.9082993659420289
+  "best_auc": 0.91532223183391
 }

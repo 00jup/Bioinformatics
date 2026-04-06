@@ -15,7 +15,6 @@ SMILES 입력
 ## 설치
 
 ```bash
-# conda 환경 생성
 make init
 conda activate bioinfo
 ```
@@ -29,54 +28,69 @@ python src/predict.py "CC(=O)Oc1ccccc1C(=O)O" "CC(=O)Nc1ccc(O)cc1"
 ```
 
 ```
-[1] SMILES: CC(=O)Oc1ccccc1C(=O)O
+[1] (Aspirin)
+  SMILES: CC(=O)Oc1ccccc1C(=O)O
   예측: 비독성 (독성 확률: 7.7%)
   근거:
     [-] 고리 수 = 1.00 개 (독성 감소) — 구조적 복잡성 지표
     [-] 방향족 고리 수 = 1.00 개 (독성 감소) — 반응성 대사체 생성 가능성
     [-] 분자량 = 180.16 Da (독성 감소) — 높을수록 간 대사 부담 증가
-
-[2] SMILES: CC(=O)Nc1ccc(O)cc1
-  예측: 비독성 (독성 확률: 13.0%)
-  근거:
-    [-] 분자량 = 151.16 Da (독성 감소) — 높을수록 간 대사 부담 증가
-    [-] 방향족 고리 수 = 1.00 개 (독성 감소) — 반응성 대사체 생성 가능성
 ```
 
 ### 파일 입력
 
 ```bash
-# CSV (SMILES 컬럼 자동 탐지)
-python src/predict.py -f input.csv -o result.txt
+# CSV (Name, SMILES 컬럼 자동 탐지)
+python src/predict.py -f data/sample_input.csv
 
-# 텍스트 (한 줄에 SMILES 하나)
-python src/predict.py -f input.txt -o result.txt
+# Notion 붙여넣기용 마크다운 테이블
+python src/predict.py -f data/sample_input.csv --format md -o result.md
 ```
 
-### 전체 파이프라인 재실행 (데이터 수집 → 학습 → 평가)
+## 워크플로우
 
-```bash
-make all
 ```
-
-## 모델 성능
-
-10-fold Stratified Cross Validation:
-
-| Model | AUC | Accuracy | F1 | Precision | Recall |
-|-------|-----|----------|-----|-----------|--------|
-| **Random Forest** | **0.908** | 0.826 | 0.822 | 0.841 | 0.815 |
-| LightGBM | 0.893 | 0.796 | 0.796 | 0.790 | 0.809 |
-| XGBoost | 0.892 | 0.815 | 0.816 | 0.818 | 0.818 |
-| SVM (RBF) | 0.846 | 0.760 | 0.781 | 0.718 | 0.861 |
-| Neural Network | 0.822 | 0.752 | 0.763 | 0.733 | 0.801 |
-
-최종 모델: 상위 3개(RF + LightGBM + XGBoost)의 Soft Voting 앙상블
+make data       → 데이터 다운로드 + train/validation/test 분할
+make features   → Feature 추출
+make train      → Train set으로 학습 + Validation 평가
+                  ↓
+          Validation 결과 확인 (models/validation_results.json)
+          → 성능이 낮으면? 하이퍼파라미터 수정 후 make train 재실행
+          → make validate 로 재평가
+                  ↓
+          만족하면?
+make test       → Test set으로 최종 평가 (1번만 실행)
+```
 
 ## 데이터
 
 - 출처: [Therapeutics Data Commons (TDC)](https://tdcommons.ai/) DILI 데이터셋
-- `make data`로 자동 다운로드 및 정제 (중복 제거, SMILES 유효성 검증)
+- `make data`로 자동 다운로드, 정제, 분할
+
+```
+data/
+  raw/           ← 원본 데이터 (TDC 다운로드)
+  processed/     ← 정제된 전체 데이터
+  train/         ← 학습용 331개 (70%)
+  validation/    ← 모델 조절용 72개 (15%)
+  test/          ← 최종 평가용 72개 (15%)
+```
+
+## 모델 성능
+
+Train set 10-fold Stratified CV:
+
+| Model | AUC | Accuracy | F1 | Precision | Recall |
+|-------|-----|----------|-----|-----------|--------|
+| **Random Forest** | **0.915** | 0.852 | 0.849 | 0.860 | 0.841 |
+| XGBoost | 0.895 | 0.840 | 0.836 | 0.848 | 0.829 |
+| LightGBM | 0.892 | 0.822 | 0.820 | 0.821 | 0.823 |
+| SVM (RBF) | 0.827 | 0.743 | 0.760 | 0.714 | 0.816 |
+| Neural Network | 0.826 | 0.749 | 0.758 | 0.737 | 0.787 |
+
+Validation set 평가: AUC 0.891, F1 0.827
+
+최종 모델: RF + XGBoost + LightGBM Soft Voting 앙상블
 
 ## Feature Set
 
@@ -87,15 +101,13 @@ make all
 | C | Morgan FP + MACCS Keys + Descriptors | ~2225 |
 | D | Physicochemical Descriptors only | 10 |
 
-Physicochemical Descriptors: MolWt, LogP, TPSA, H-bond donors/acceptors, Rotatable bonds, Aromatic rings, FractionCSP3, Heavy atom count, Ring count
-
 ## 프로젝트 구조
 
 ```
 src/
-  data_preparation.py      # TDC 데이터 다운로드 및 정제
+  data_preparation.py      # 데이터 다운로드, 정제, train/val/test 분할
   feature_engineering.py   # Morgan FP + Descriptor 추출
-  model_training.py        # 5개 모델 10-fold CV + 앙상블
+  model_training.py        # 5개 모델 10-fold CV + 앙상블 + Validation 평가
   predict.py               # SMILES 입력 → 예측 + SHAP 설명
 notebooks/
   01_eda.ipynb             # 탐색적 데이터 분석
@@ -103,8 +115,10 @@ notebooks/
 models/
   best_model.pkl           # 학습된 앙상블 모델
   cv_results.json          # CV 결과
+  validation_results.json  # Validation 평가 결과
   model_meta.json          # 모델 메타데이터
-data/                      # raw + processed 데이터
+data/
+  sample_input.csv         # 예측용 샘플 입력 파일
 results/figures/           # ROC curve, Confusion matrix
 ```
 
@@ -114,9 +128,12 @@ results/figures/           # ROC curve, Confusion matrix
 |--------|------|
 | `make init` | conda 환경 생성 |
 | `make all` | 전체 파이프라인 (data → features → train) |
-| `make data` | 데이터 다운로드/정제 |
+| `make data` | 데이터 다운로드 + train/validation/test 분할 |
 | `make features` | Feature 추출 |
-| `make train` | 모델 학습/평가 |
+| `make train` | Train set 학습 + Validation 평가 |
+| `make validate` | Validation set 재평가 (파라미터 수정 후 확인용) |
+| `make test` | Test set 최종 평가 (마지막에 1번만) |
+| `make predict` | 예측 (`make predict INPUT=data/sample_input.csv`) |
 | `make format` | ruff 코드 포맷팅 |
 | `make lint` | ruff 린트 검사 |
 | `make clean` | 생성 파일 정리 |

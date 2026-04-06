@@ -17,6 +17,9 @@ env/
 # Data (large files)
 data/raw/
 data/processed/
+data/train/
+data/validation/
+data/test/
 
 # Models (large files)
 models/*.pkl

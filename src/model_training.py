@@ -58,6 +58,10 @@ FIGURES_DIR = os.path.join(PROJECT_ROOT, "results", "figures")
 RANDOM_STATE = 42
 
 
+TRAIN_DIR = os.path.join(PROJECT_ROOT, "data", "train")
+TEST_DIR = os.path.join(PROJECT_ROOT, "data", "test")
+
+
 def load_data(feature_set="B"):
     """Feature와 Label 로드."""
     feature_path = os.path.join(PROCESSED_DIR, f"features_{feature_set}.csv")
@@ -416,9 +420,58 @@ def tune_and_build_ensemble(X, y, top_model_names, models):
     return ensemble, "Ensemble"
 
 
+def load_split_data(split, feature_set="B"):
+    """Train/Validation/Test 분할 데이터를 로드하고 feature 추출."""
+    import sys
+
+    sys.path.insert(0, PROJECT_ROOT)
+    from src.feature_engineering import extract_features
+
+    short_names = {"validation": "val"}
+    split_dir = os.path.join(PROJECT_ROOT, "data", split)
+    file_name = short_names.get(split, split)
+    csv_path = os.path.join(split_dir, f"dili_{file_name}.csv")
+    if not os.path.exists(csv_path):
+        return None, None
+
+    df = pd.read_csv(csv_path)
+    feature_df, valid_indices = extract_features(df["SMILES"].tolist(), feature_set=feature_set)
+    labels = df["Label"].iloc[valid_indices].values
+    return feature_df.values, labels
+
+
+def evaluate_on_set(model, X, y, set_name="Validation"):
+    """주어진 데이터셋에서 모델 성능을 평가."""
+    y_pred = model.predict(X)
+    y_prob = model.predict_proba(X)[:, 1]
+
+    results = {
+        "auc": roc_auc_score(y, y_prob),
+        "accuracy": accuracy_score(y, y_pred),
+        "f1": f1_score(y, y_pred),
+        "precision": precision_score(y, y_pred, zero_division=0),
+        "recall": recall_score(y, y_pred),
+    }
+
+    print(f"\n{'=' * 50}")
+    print(f"  {set_name} Set 평가 결과")
+    print(f"{'=' * 50}")
+    for metric, value in results.items():
+        print(f"  {metric:>12}: {value:.4f}")
+
+    # 결과 저장
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    result_path = os.path.join(MODELS_DIR, f"{set_name.lower()}_results.json")
+    with open(result_path, "w") as f:
+        json.dump({k: float(v) for k, v in results.items()}, f, indent=2)
+    print(f"  저장: {result_path}")
+
+    return results
+
+
 def train_final_model(X, y, feature_set="B"):
     """전체 파이프라인: 평가 → 시각화 → 최종 모델 저장."""
-    # 1. 모든 모델 평가
+    # 1. 모든 모델 평가 (Train set으로 CV)
     all_results, roc_data, models = evaluate_all_models(X, y)
 
     # 2. 비교 테이블
@@ -471,5 +524,15 @@ def train_final_model(X, y, feature_set="B"):
 
 
 if __name__ == "__main__":
-    X, y = load_data(feature_set="B")
-    model, results = train_final_model(X, y, feature_set="B")
+    # Train 데이터로 학습
+    X_train, y_train = load_split_data("train", feature_set="B")
+    if X_train is None:
+        # 분할 데이터 없으면 전체 데이터 사용 (하위 호환)
+        X_train, y_train = load_data(feature_set="B")
+
+    model, results = train_final_model(X_train, y_train, feature_set="B")
+
+    # Validation 평가
+    X_val, y_val = load_split_data("validation", feature_set="B")
+    if X_val is not None:
+        evaluate_on_set(model, X_val, y_val, "Validation")
