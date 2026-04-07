@@ -1,27 +1,55 @@
 CONDA_ENV := bioinfo
 VENV_DIR := .venv
 
-# venv 생성용 Python 자동 탐지 (3.10 → 3.11 → 3.12)
-# 3.13+ 는 일부 패키지 빌드 실패하므로 제외
-VENV_PYTHON := $(shell command -v python3.10 2>/dev/null || command -v python3.11 2>/dev/null || command -v python3.12 2>/dev/null)
+# Windows에서 사용할 py launcher 버전 (override 가능: make data PY_VERSION=3.10)
+PY_VERSION ?= 3.11
 
-# 환경 자동 감지: .venv가 있으면 venv 우선, 없으면 conda
-ifneq ($(wildcard $(VENV_DIR)/bin/python),)
-    PYTHON := $(VENV_DIR)/bin/python
-    RUFF := $(VENV_DIR)/bin/ruff
+# ─────────────────────────────────────────────
+# OS 감지 (Windows vs Unix)
+# ─────────────────────────────────────────────
+ifeq ($(OS),Windows_NT)
+    DETECTED_OS := Windows
+    VENV_BIN := $(VENV_DIR)/Scripts
+    EXE := .exe
+else
+    DETECTED_OS := $(shell uname -s 2>/dev/null || echo Unknown)
+    VENV_BIN := $(VENV_DIR)/bin
+    EXE :=
+endif
+
+# ─────────────────────────────────────────────
+# 환경 자동 감지: venv → py(Windows) → conda
+# ─────────────────────────────────────────────
+ifneq ($(wildcard $(VENV_BIN)/python$(EXE)),)
+    PYTHON := $(VENV_BIN)/python$(EXE)
+    RUFF := $(VENV_BIN)/ruff$(EXE)
     ENV_NAME := venv
+else ifeq ($(DETECTED_OS),Windows)
+    PYTHON := py -$(PY_VERSION)
+    RUFF := py -$(PY_VERSION) -m ruff
+    ENV_NAME := py-$(PY_VERSION)
 else
     PYTHON := conda run -n $(CONDA_ENV) python
     RUFF := conda run -n $(CONDA_ENV) ruff
     ENV_NAME := conda
 endif
 
-.PHONY: init init-conda init-venv _install-hooks init-update format lint check data features train validate test predict all clean clean-env help
+.PHONY: init init-conda init-venv init-py init-update format lint check data features train validate test predict all clean clean-env help
 
 ## ──────────────────────────────────────────────
 ## 환경 설정
 ## ──────────────────────────────────────────────
 
+ifeq ($(DETECTED_OS),Windows)
+init:
+	@echo ========================================
+	@echo  Windows 사용자: 다음 중 하나 직접 실행
+	@echo ========================================
+	@echo   make init-py        - py launcher로 직접 설치 (venv 없음, 가장 간단)
+	@echo   make init-venv      - venv 격리 환경 생성
+	@echo   make init-conda     - conda 사용
+	@echo   .\setup.ps1         - PowerShell 직접 실행
+else
 init: ## 환경 설정 (conda 또는 venv 선택)
 	@echo "========================================"
 	@echo " 환경 선택"
@@ -35,42 +63,64 @@ init: ## 환경 설정 (conda 또는 venv 선택)
 		2) $(MAKE) init-venv ;; \
 		*) echo "❌ 잘못된 선택입니다."; exit 1 ;; \
 	esac
+endif
 
 init-conda: ## conda 환경 생성 및 패키지 설치
 	conda env create -f environment.yml
-	@$(MAKE) _install-hooks
-	@echo ""
-	@echo "========================================"
-	@echo " ✅ conda 환경 설정 완료!"
-	@echo " 활성화: conda activate $(CONDA_ENV)"
-	@echo "========================================"
+	conda run -n $(CONDA_ENV) python scripts/install_hooks.py
+	@echo ========================================
+	@echo  conda 환경 설정 완료!
+	@echo  활성화: conda activate $(CONDA_ENV)
+	@echo ========================================
 
+# init-py: Windows 전용 - venv 없이 py launcher로 직접 설치
+init-py: ## Windows: py launcher로 패키지 직접 설치 (venv 없음)
+	py -$(PY_VERSION) -m pip install --upgrade pip
+	py -$(PY_VERSION) -m pip install -r requirements.txt
+	py -$(PY_VERSION) scripts/install_hooks.py
+	@echo ========================================
+	@echo  py -$(PY_VERSION) 환경 설정 완료!
+	@echo  모든 make 명령이 'py -$(PY_VERSION)'로 실행됩니다
+	@echo ========================================
+
+ifeq ($(DETECTED_OS),Windows)
+init-venv:
+	@echo Detecting Python via py launcher (3.11 -^> 3.10 -^> 3.12)...
+	py -3.11 -m venv $(VENV_DIR) || py -3.10 -m venv $(VENV_DIR) || py -3.12 -m venv $(VENV_DIR)
+	$(VENV_BIN)/python$(EXE) -m pip install --upgrade pip
+	$(VENV_BIN)/python$(EXE) -m pip install -r requirements.txt
+	$(VENV_BIN)/python$(EXE) scripts/install_hooks.py
+	@echo ========================================
+	@echo  venv 환경 설정 완료!
+	@echo  활성화 (cmd):        $(VENV_BIN)\activate.bat
+	@echo  활성화 (PowerShell): $(VENV_BIN)\Activate.ps1
+	@echo ========================================
+else
 init-venv: ## venv 환경 생성 및 패키지 설치 (python 3.10/3.11/3.12 필요)
-	@if [ -z "$(VENV_PYTHON)" ]; then \
+	@VENV_PY="$$(command -v python3.10 2>/dev/null || command -v python3.11 2>/dev/null || command -v python3.12 2>/dev/null)"; \
+	if [ -z "$$VENV_PY" ]; then \
 		echo "❌ python3.10 / 3.11 / 3.12 중 하나가 필요합니다."; \
 		echo "   설치 예시 (macOS): brew install python@3.11"; \
 		echo "   설치 예시 (Ubuntu): sudo apt install python3.11 python3.11-venv"; \
 		exit 1; \
-	fi
-	@echo "✓ 사용할 Python: $(VENV_PYTHON)"
-	$(VENV_PYTHON) -m venv $(VENV_DIR)
-	$(VENV_DIR)/bin/pip install --upgrade pip
-	$(VENV_DIR)/bin/pip install -r requirements.txt
-	@$(MAKE) _install-hooks
+	fi; \
+	echo "✓ 사용할 Python: $$VENV_PY"; \
+	"$$VENV_PY" -m venv $(VENV_DIR)
+	$(VENV_BIN)/python$(EXE) -m pip install --upgrade pip
+	$(VENV_BIN)/python$(EXE) -m pip install -r requirements.txt
+	$(VENV_BIN)/python$(EXE) scripts/install_hooks.py
 	@echo ""
 	@echo "========================================"
 	@echo " ✅ venv 환경 설정 완료!"
 	@echo " 활성화: source $(VENV_DIR)/bin/activate"
 	@echo "========================================"
-
-_install-hooks:
-	@mkdir -p .git/hooks
-	@cp hooks/pre-push .git/hooks/pre-push
-	@chmod +x .git/hooks/pre-push
+endif
 
 init-update: ## 환경 업데이트 (현재 활성 환경 기준)
 ifeq ($(ENV_NAME),venv)
-	$(VENV_DIR)/bin/pip install -r requirements.txt --upgrade
+	$(VENV_BIN)/python$(EXE) -m pip install -r requirements.txt --upgrade
+else ifeq ($(DETECTED_OS),Windows)
+	py -$(PY_VERSION) -m pip install -r requirements.txt --upgrade
 else
 	conda env update -n $(CONDA_ENV) -f environment.yml --prune
 endif
@@ -132,13 +182,15 @@ clean: ## 생성된 파일 정리
 
 clean-env: ## 환경 삭제 (현재 활성 환경 기준)
 ifeq ($(ENV_NAME),venv)
-	rm -rf $(VENV_DIR)
+	$(PYTHON) -c "import shutil; shutil.rmtree('$(VENV_DIR)', ignore_errors=True)"
+else ifneq ($(filter py-%,$(ENV_NAME)),)
+	@echo "py 환경은 패키지 제거가 필요합니다: py -$(PY_VERSION) -m pip uninstall -r requirements.txt"
 else
 	conda env remove -n $(CONDA_ENV)
 endif
 
 help: ## 도움말 출력
-	@echo "현재 활성 환경: $(ENV_NAME)"
+	@echo "OS: $(DETECTED_OS) / 현재 활성 환경: $(ENV_NAME) / PY_VERSION: $(PY_VERSION)"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
