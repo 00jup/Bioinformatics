@@ -2,7 +2,7 @@ CONDA_ENV := bioinfo
 VENV_DIR := .venv
 
 # Windows에서 사용할 py launcher 버전 (override 가능: make data PY_VERSION=3.10)
-PY_VERSION ?= 3.11
+PY_VERSION ?= 3.14
 
 # ─────────────────────────────────────────────
 # OS 감지 (Windows vs Unix)
