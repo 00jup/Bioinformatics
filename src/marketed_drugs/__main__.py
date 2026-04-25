@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -45,15 +46,28 @@ SOURCES = {
     "drugbank": drugbank.collect_drugbank,
 }
 
+# 환경변수로 일부 소스 비활성화 가능 (예: SKIP_SOURCES=kegg,inxight)
+SKIPPED = set(
+    s.strip().lower()
+    for s in os.environ.get("SKIP_SOURCES", "").split(",")
+    if s.strip()
+)
+
 
 def collect_one(name: str, force: bool = False) -> pd.DataFrame | None:
     """단일 소스 수집 (캐시 활용)."""
     cache_path = RAW_DIR / f"{name}.csv"
     if cache_path.exists() and not force:
-        logger.info("%s: 캐시 사용 (%s)", name, cache_path)
-        return pd.read_csv(cache_path)
+        cached = pd.read_csv(cache_path)
+        if not cached.empty:
+            logger.info("%s: 캐시 사용 (%s, %d개)", name, cache_path, len(cached))
+            return cached
+        logger.warning("%s: 빈 캐시 무시 후 재수집", name)
     try:
         df = SOURCES[name]()
+        if df is None or df.empty:
+            logger.warning("%s: 빈 결과 — 캐시 저장 skip", name)
+            return None
         df.to_csv(cache_path, index=False)
         return df
     except Exception as e:
@@ -67,6 +81,9 @@ def run_pipeline(skip_cache: bool = False, only_source: str | None = None) -> in
     raw_by_source: dict[str, pd.DataFrame] = {}
     sources_to_run = [only_source] if only_source else list(SOURCES.keys())
     for name in sources_to_run:
+        if name in SKIPPED:
+            logger.info("%s: SKIP_SOURCES 환경변수에 의해 skip", name)
+            continue
         df = collect_one(name, force=skip_cache)
         if df is not None and not df.empty:
             raw_by_source[name] = df
