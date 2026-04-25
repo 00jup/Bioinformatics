@@ -153,7 +153,7 @@ train: ## Train set으로 모델 학습 + Validation 평가
 
 validate: ## Validation set으로 현재 모델 평가 (모델 조절용)
 	$(PYTHON) -c "\
-from src.model_training import load_split_data, evaluate_on_set, load_model_from_disk; \
+from src.model_training import load_split_data, evaluate_on_set; \
 import joblib; \
 model = joblib.load('models/best_model.pkl'); \
 X_val, y_val = load_split_data('validation', feature_set='B'); \
