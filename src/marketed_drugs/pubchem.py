@@ -13,8 +13,9 @@ from src.marketed_drugs._http import fetch_json
 logger = logging.getLogger(__name__)
 
 PUBCHEM_BASE = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-# FDA Global Substance Registration System — 시판 substance 등록 DB
-SOURCE_NAME = "FDA Global Substance Registration System (GSRS)"
+# DrugBank source — ~13.5k entries (approved/investigational/etc)
+# (GSRS는 168k로 너무 큼. NINDS는 1k로 작음. DrugBank는 균형이 좋음)
+SOURCE_NAME = "DrugBank"
 RATE_LIMIT_DELAY = 0.2
 BATCH_SIZE = 200
 
