@@ -21,8 +21,17 @@ data/train/
 data/validation/
 data/test/
 
+# Marketed drugs collection (large data)
+data/marketed_drugs/
+
 # Models (large files)
 models/*.pkl
+
+# Versioned models (large files, regenerable)
+models/v*/
+models/latest.txt
+models/VERSIONS.md
+models/model_meta.json.legacy
 
 # Jupyter
 .ipynb_checkpoints/
@@ -36,5 +45,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Pytest
+.pytest_cache/
+
 # Results (regenerable)
 results/figures/*.png
+results/comparison_*.md
