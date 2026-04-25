@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Any
 
@@ -20,6 +21,9 @@ PUBCHEM_PROP_URL = (
     "CanonicalSMILES,InChIKey/JSON"
 )
 RATE_LIMIT_DELAY = 0.34
+# KEGG 전체 ~12000개 (각 약물마다 GET + PubChem fallback 호출)
+# Default 1500개로 제한 (약 15-20분). 환경변수로 override 가능.
+DEFAULT_LIMIT = int(os.environ.get("KEGG_LIMIT", "1500"))
 
 
 def parse_kegg_list(text: str) -> list[dict]:
@@ -71,10 +75,12 @@ def _smiles_from_pubchem_cid(cid: str) -> str:
 
 
 def collect_kegg(limit: int | None = None) -> pd.DataFrame:
-    """KEGG DRUG 전체 수집 (limit는 테스트용)."""
+    """KEGG DRUG 수집. limit=None이면 DEFAULT_LIMIT(1500) 사용."""
+    if limit is None:
+        limit = DEFAULT_LIMIT
     list_text = fetch_text(KEGG_LIST_URL)
     entries = parse_kegg_list(list_text)
-    if limit:
+    if limit and limit > 0:
         entries = entries[:limit]
     logger.info("KEGG list: %d entries", len(entries))
 
