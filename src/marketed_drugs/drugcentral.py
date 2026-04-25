@@ -11,7 +11,7 @@ from src.marketed_drugs._http import fetch_text
 
 logger = logging.getLogger(__name__)
 
-DRUGCENTRAL_URL = "https://unmtid-shinyapps.net/download/structures.smiles.tsv"
+DRUGCENTRAL_URL = "https://unmtid-dbs.net/download/DrugCentral/2021_09_01/structures.smiles.tsv"
 
 
 def collect_drugcentral() -> pd.DataFrame:

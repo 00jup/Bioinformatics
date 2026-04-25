@@ -8,7 +8,7 @@ def test_pubchem_collects_fda_approved(fixtures_dir):
     fixture = json.loads((fixtures_dir / "pubchem_response.json").read_text())
 
     def fake_fetch(url, params=None, timeout=30):
-        if "sourceall" in url or "cids" in url:
+        if "/substance/sourceall/" in url:
             return fixture["cid_list"]
         return fixture["properties"]
 

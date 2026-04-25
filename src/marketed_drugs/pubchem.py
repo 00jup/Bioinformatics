@@ -13,16 +13,23 @@ from src.marketed_drugs._http import fetch_json
 logger = logging.getLogger(__name__)
 
 PUBCHEM_BASE = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-SOURCE_NAME = "FDA Pharmaceutical Substances"
+# FDA Global Substance Registration System — 시판 substance 등록 DB
+SOURCE_NAME = "FDA Global Substance Registration System (GSRS)"
 RATE_LIMIT_DELAY = 0.2
 BATCH_SIZE = 200
 
 
 def _fetch_cids() -> list[int]:
-    """FDA 승인 약물 CID 리스트 조회."""
-    url = f"{PUBCHEM_BASE}/sourceall/{quote(SOURCE_NAME)}/cids/JSON"
+    """GSRS substance source에서 CID 리스트 조회 (SID→CID 매핑 평탄화)."""
+    url = f"{PUBCHEM_BASE}/substance/sourceall/{quote(SOURCE_NAME)}/cids/JSON"
     data = fetch_json(url)
-    return data.get("IdentifierList", {}).get("CID", [])
+    info_list = data.get("InformationList", {}).get("Information", [])
+    cids: set[int] = set()
+    for entry in info_list:
+        for cid in entry.get("CID", []) or []:
+            if cid:
+                cids.add(int(cid))
+    return sorted(cids)
 
 
 def _fetch_properties(cids: list[int]) -> list[dict]:

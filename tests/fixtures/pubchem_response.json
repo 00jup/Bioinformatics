@@ -1,5 +1,13 @@
 {
-  "cid_list": {"IdentifierList": {"CID": [2244, 1983, 4091]}},
+  "cid_list": {
+    "InformationList": {
+      "Information": [
+        {"SID": 100001, "CID": [2244]},
+        {"SID": 100002, "CID": [1983]},
+        {"SID": 100003, "CID": [4091]}
+      ]
+    }
+  },
   "properties": {
     "PropertyTable": {
       "Properties": [
