@@ -1,0 +1,12 @@
+{
+  "cid_list": {"IdentifierList": {"CID": [2244, 1983, 4091]}},
+  "properties": {
+    "PropertyTable": {
+      "Properties": [
+        {"CID": 2244, "Title": "Aspirin", "CanonicalSMILES": "CC(=O)Oc1ccccc1C(=O)O", "InChIKey": "BSYNRYMUTXBXSQ-UHFFFAOYSA-N"},
+        {"CID": 1983, "Title": "Acetaminophen", "CanonicalSMILES": "CC(=O)Nc1ccc(O)cc1", "InChIKey": "RZVAJINKPMORJF-UHFFFAOYSA-N"},
+        {"CID": 4091, "Title": "Metformin", "CanonicalSMILES": "CN(C)C(=N)N=C(N)N", "InChIKey": "XZWYZXLIPXDOLR-UHFFFAOYSA-N"}
+      ]
+    }
+  }
+}
