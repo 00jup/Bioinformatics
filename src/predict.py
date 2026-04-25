@@ -41,16 +41,51 @@ DESCRIPTOR_INFO = {
 }
 
 
-def load_model(model_path=None):
-    """저장된 모델 로드."""
-    if model_path is None:
-        model_path = os.path.join(PROJECT_ROOT, "models", "best_model.pkl")
-    if not os.path.exists(model_path):
-        print(f"오류: 모델 파일이 없습니다: {model_path}")
-        print("먼저 model_training.py를 실행하세요.")
-        sys.exit(1)
-    model = joblib.load(model_path)
-    return model
+def load_model(model_path=None, version=None):
+    """저장된 모델 로드.
+
+    우선순위:
+      1) model_path 명시 → 해당 경로
+      2) version 명시 → models/v{version}/best_model.pkl
+      3) models/latest.txt 있음 → 해당 버전
+      4) fallback: models/best_model.pkl (deprecated)
+    """
+    from src.model_versioning import (
+        DEFAULT_MODELS_DIR,
+        get_current_version,
+        load_versioned_model,
+    )
+
+    if model_path is not None:
+        if not os.path.exists(model_path):
+            print(f"오류: 모델 파일이 없습니다: {model_path}")
+            sys.exit(1)
+        return joblib.load(model_path)
+
+    if version is None:
+        latest_file = DEFAULT_MODELS_DIR / "latest.txt"
+        if latest_file.exists():
+            version = get_current_version()
+
+    if version is not None:
+        try:
+            return load_versioned_model(version)
+        except FileNotFoundError:
+            print(f"오류: v{version} 모델 없음 ({DEFAULT_MODELS_DIR}/v{version}/)")
+            sys.exit(1)
+
+    legacy = os.path.join(PROJECT_ROOT, "models", "best_model.pkl")
+    if os.path.exists(legacy):
+        warnings.warn(
+            "models/best_model.pkl is deprecated. Run `make migrate-v1`.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return joblib.load(legacy)
+
+    print("오류: 모델 파일이 없습니다.")
+    print("먼저 `make train` 또는 `make migrate-v1` 실행.")
+    sys.exit(1)
 
 
 def read_smiles_from_file(input_path, column=None):
@@ -347,7 +382,15 @@ def main():
     parser.add_argument(
         "--format", choices=["text", "md"], default="text", help="출력 형식 (text/md)"
     )
-    parser.add_argument("--model", default=None, help="모델 파일 경로")
+    parser.add_argument("--model", default=None, help="모델 파일 경로 (직접 지정)")
+    parser.add_argument(
+        "--model-version", default=None, help="버전 명시 (예: 1.0.0). 없으면 latest 사용"
+    )
+    parser.add_argument(
+        "--compare-versions",
+        default=None,
+        help="쉼표로 구분된 두 버전 (예: 1.0.0,1.1.0) — 각 버전 결과 비교",
+    )
     parser.add_argument("--column", default=None, help="CSV의 SMILES 컬럼명")
     parser.add_argument("--feature-set", default="B", help="Feature set (A/B/C/D)")
     args = parser.parse_args()
@@ -377,8 +420,46 @@ def main():
         print("오류: 입력된 SMILES가 없습니다.")
         sys.exit(1)
 
+    # --compare-versions: 두 버전을 동시에 예측하고 비교 출력
+    if args.compare_versions:
+        versions = [v.strip() for v in args.compare_versions.split(",") if v.strip()]
+        if len(versions) < 2:
+            print("오류: --compare-versions 에는 최소 2개 버전이 필요합니다 (예: 1.0.0,1.1.0)")
+            sys.exit(1)
+
+        per_version: dict[str, list] = {}
+        for v in versions:
+            m = load_model(version=v)
+            per_version[v] = predict_and_explain(
+                smiles_list, m, names=names, feature_set=args.feature_set
+            )
+
+        # 비교 테이블 출력
+        print(f"\n{'=' * 80}")
+        print(f"  버전 비교: {' vs '.join('v' + v for v in versions)}")
+        print(f"{'=' * 80}")
+        header = f"{'#':<4}{'Name':<25}{'SMILES (앞 30자)':<35}" + "".join(
+            f"v{v}".ljust(15) for v in versions
+        )
+        print(header)
+        print("-" * len(header))
+        for i, smi in enumerate(smiles_list):
+            n = names[i] if names else ""
+            n_short = (n or "")[:24]
+            s_short = smi[:32] + ("…" if len(smi) > 32 else "")
+            row = f"{i + 1:<4}{n_short:<25}{s_short:<35}"
+            for v in versions:
+                r = per_version[v][i]
+                if r["prediction"] == -1:
+                    row += "ERR".ljust(15)
+                else:
+                    label = "독성" if r["prediction"] == 1 else "비독성"
+                    row += f"{label} {r['probability']:.1%}".ljust(15)
+            print(row)
+        return
+
     # 모델 로드
-    model = load_model(args.model)
+    model = load_model(args.model, version=args.model_version)
 
     # 예측 + 설명
     results = predict_and_explain(smiles_list, model, names=names, feature_set=args.feature_set)
