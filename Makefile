@@ -34,7 +34,7 @@ else
     ENV_NAME := conda
 endif
 
-.PHONY: init init-conda init-venv init-py init-update format lint check data features train validate test predict all clean clean-env help
+.PHONY: init init-conda init-venv init-py init-update format lint check data features train validate test predict all clean clean-env help collect-marketed collect-marketed-clean validate-marketed migrate-v1 train-extended test-extended pytest pytest-fast
 
 ## ──────────────────────────────────────────────
 ## 환경 설정
@@ -194,3 +194,32 @@ help: ## 도움말 출력
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+## ──────────────────────────────────────────────
+## 시판 약물 수집 + v1.1 학습
+## ──────────────────────────────────────────────
+
+collect-marketed: ## 시판약 수집 파이프라인 (6개 소스 → ~15k SMILES)
+	$(PYTHON) -m src.marketed_drugs
+
+collect-marketed-clean: ## 캐시 모두 삭제 후 재수집
+	rm -rf data/marketed_drugs
+	$(PYTHON) -m src.marketed_drugs
+
+validate-marketed: ## 수집 결과 sanity check
+	$(PYTHON) -m src.marketed_drugs.validate
+
+migrate-v1: ## models/best_model.pkl → models/v1.0.0/ 마이그레이션 (1회성)
+	$(PYTHON) -m src.marketed_drugs.migrate_v1_0_0
+
+train-extended: ## TDC + 시판약으로 v1.1.0 학습 + Validation 평가
+	$(PYTHON) -m src.model_training_extended $(if $(STRATEGY),--strategy $(STRATEGY)) $(if $(VERSION),--version $(VERSION))
+
+test-extended: ## 학습된 v1.1.0 모델 Test set 최종 평가 (1회만)
+	$(PYTHON) -m src.model_training_extended --test-only $(if $(VERSION),--version $(VERSION))
+
+pytest: ## pytest 전체 실행
+	$(PYTHON) -m pytest tests/ -v
+
+pytest-fast: ## unit 테스트만 빠르게
+	$(PYTHON) -m pytest tests/unit -v
