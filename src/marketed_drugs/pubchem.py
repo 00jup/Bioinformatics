@@ -34,15 +34,15 @@ def _fetch_cids() -> list[int]:
 
 
 def _fetch_properties(cids: list[int]) -> list[dict]:
-    """CID 배치별로 SMILES + InChIKey + Title 조회."""
+    """CID 배치별로 SMILES + InChIKey + Title 조회.
+
+    PubChem 2024+에서 CanonicalSMILES/IsomericSMILES 폐기되고 SMILES로 통합.
+    """
     rows: list[dict] = []
     for i in range(0, len(cids), BATCH_SIZE):
         batch = cids[i : i + BATCH_SIZE]
         cid_str = ",".join(str(c) for c in batch)
-        url = (
-            f"{PUBCHEM_BASE}/compound/cid/{cid_str}/property/"
-            "Title,CanonicalSMILES,InChIKey/JSON"
-        )
+        url = f"{PUBCHEM_BASE}/compound/cid/{cid_str}/property/Title,SMILES,InChIKey/JSON"
         data = fetch_json(url)
         props = data.get("PropertyTable", {}).get("Properties", [])
         rows.extend(props)
@@ -51,7 +51,7 @@ def _fetch_properties(cids: list[int]) -> list[dict]:
 
 
 def collect_pubchem() -> pd.DataFrame:
-    """PubChem FDA Pharmaceutical Substances 전체 수집."""
+    """PubChem DrugBank source 전체 수집."""
     cids = _fetch_cids()
     logger.info("PubChem: %d CID 발견", len(cids))
 
@@ -62,7 +62,7 @@ def collect_pubchem() -> pd.DataFrame:
             {
                 "cid": p.get("CID"),
                 "name": p.get("Title", ""),
-                "smiles": p.get("CanonicalSMILES", ""),
+                "smiles": p.get("SMILES") or p.get("ConnectivitySMILES") or "",
                 "inchi_key": p.get("InChIKey", ""),
             }
             for p in props
