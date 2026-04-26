@@ -261,6 +261,18 @@ def train(strategy: str = "undersample", version: str | None = None) -> int:
     X_val, y_val = load_split_data("validation", feature_set="B")
     val_results = evaluate_on_set(final_model, X_val, y_val, set_name=f"Validation_v{version}")
 
+    # F1 최대화 threshold 튜닝 (validation set 기준)
+    from sklearn.metrics import f1_score
+
+    y_val_prob = final_model.predict_proba(X_val)[:, 1]
+    best_t, best_f1 = 0.5, 0.0
+    for t in np.arange(0.05, 0.95, 0.01):
+        y_pred = (y_val_prob >= t).astype(int)
+        f1 = f1_score(y_val, y_pred, zero_division=0)
+        if f1 > best_f1:
+            best_t, best_f1 = float(t), float(f1)
+    logger.info("Threshold tuning: best=%.3f (F1=%.4f)", best_t, best_f1)
+
     cv_serializable = {
         name: {
             k: {"mean": float(v["mean"]), "std": float(v["std"])} for k, v in res.items()
@@ -290,6 +302,9 @@ def train(strategy: str = "undersample", version: str | None = None) -> int:
         previous_version=prev_version if prev_val_auc is not None else None,
         previous_val_auc=prev_val_auc,
     )
+    meta["classification_threshold"] = round(best_t, 3)
+    meta["classification_threshold_tuned_on"] = "validation_set_f1_max"
+    meta["model"]["components"] = top_names  # 실제 ensemble 구성 반영
 
     manifest = combined[["smiles", "label", "inchi_key", "source_label"]].copy()
     save_versioned_model(
