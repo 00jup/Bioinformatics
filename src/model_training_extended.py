@@ -42,10 +42,10 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 
 
 def _load_combined_dataset(strategy: str = "undersample", ratio: int = 5) -> pd.DataFrame:
-    """TDC train + marketed clean + DILIrank vMost positives 결합."""
+    """TDC train + marketed clean + DILIrank/SIDER 통합 hepatotoxic_all 양성."""
     tdc_train = pd.read_csv(DATA_DIR / "train" / "dili_train.csv")
-    marketed_all_path = DATA_DIR / "marketed_drugs" / "all" / "marketed_all.csv"
     marketed_clean_path = DATA_DIR / "marketed_drugs" / "non_hepatotoxic" / "marketed_clean.csv"
+    hepatotoxic_all_path = DATA_DIR / "marketed_drugs" / "hepatotoxic" / "hepatotoxic_all.csv"
 
     if not marketed_clean_path.exists():
         raise FileNotFoundError(
@@ -53,8 +53,8 @@ def _load_combined_dataset(strategy: str = "undersample", ratio: int = 5) -> pd.
         )
 
     marketed_clean = pd.read_csv(marketed_clean_path)
-    marketed_all = pd.read_csv(marketed_all_path) if marketed_all_path.exists() else pd.DataFrame()
 
+    # TDC: 그대로 (양성/음성 둘 다)
     tdc_train = tdc_train.copy()
     tdc_train["inchi_key"] = tdc_train["SMILES"].apply(smiles_to_inchikey)
     tdc_rows = pd.DataFrame(
@@ -67,23 +67,42 @@ def _load_combined_dataset(strategy: str = "undersample", ratio: int = 5) -> pd.
     )
     tdc_keys = set(tdc_rows["inchi_key"]) - {""}
 
-    if not marketed_all.empty and "dilirank_category" in marketed_all.columns:
-        dilirank_pos = marketed_all[marketed_all["dilirank_category"] == "vMost-DILI-Concern"]
-        dilirank_pos = dilirank_pos[~dilirank_pos["inchi_key"].isin(tdc_keys)]
-        dilirank_rows = pd.DataFrame(
+    # Hepatotoxic 통합 (DILIrank vMost+vLess + TDC + SIDER) — 모두 양성으로 사용
+    if hepatotoxic_all_path.exists():
+        hepa = pd.read_csv(hepatotoxic_all_path)
+        hepa = hepa[~hepa["inchi_key"].isin(tdc_keys)]
+        hepa_rows = pd.DataFrame(
             {
-                "smiles": dilirank_pos["canonical_smiles"],
+                "smiles": hepa["canonical_smiles"],
                 "label": 1,
-                "inchi_key": dilirank_pos["inchi_key"],
-                "source_label": "dilirank_vmost",
+                "inchi_key": hepa["inchi_key"],
+                "source_label": "hepatotoxic_all",
             }
         )
+        logger.info("Hepatotoxic 통합 (DILIrank+SIDER+TDC매칭): %d (TDC 중복 제외)", len(hepa_rows))
     else:
-        dilirank_rows = pd.DataFrame(
-            columns=["smiles", "label", "inchi_key", "source_label"]
+        # 폴백: marketed_all.csv의 dilirank_category로만 (구버전)
+        marketed_all_path = DATA_DIR / "marketed_drugs" / "all" / "marketed_all.csv"
+        marketed_all = (
+            pd.read_csv(marketed_all_path) if marketed_all_path.exists() else pd.DataFrame()
         )
+        if not marketed_all.empty and "dilirank_category" in marketed_all.columns:
+            dilirank_pos = marketed_all[marketed_all["dilirank_category"] == "vMost-DILI-Concern"]
+            dilirank_pos = dilirank_pos[~dilirank_pos["inchi_key"].isin(tdc_keys)]
+            hepa_rows = pd.DataFrame(
+                {
+                    "smiles": dilirank_pos["canonical_smiles"],
+                    "label": 1,
+                    "inchi_key": dilirank_pos["inchi_key"],
+                    "source_label": "dilirank_vmost",
+                }
+            )
+        else:
+            hepa_rows = pd.DataFrame(
+                columns=["smiles", "label", "inchi_key", "source_label"]
+            )
 
-    pos_keys = tdc_keys | set(dilirank_rows["inchi_key"]) - {""}
+    pos_keys = tdc_keys | set(hepa_rows["inchi_key"]) - {""}
 
     clean_filtered = marketed_clean[~marketed_clean["inchi_key"].isin(pos_keys)]
     clean_rows = pd.DataFrame(
@@ -95,7 +114,7 @@ def _load_combined_dataset(strategy: str = "undersample", ratio: int = 5) -> pd.
         }
     )
 
-    combined = pd.concat([tdc_rows, dilirank_rows, clean_rows], ignore_index=True)
+    combined = pd.concat([tdc_rows, hepa_rows, clean_rows], ignore_index=True)
     combined = combined.drop_duplicates(subset="inchi_key", keep="first").reset_index(drop=True)
 
     pos_count = int((combined["label"] == 1).sum())
