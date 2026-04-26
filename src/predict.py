@@ -246,8 +246,13 @@ def explain_with_shap(model, feature_df, feature_names):
     return explanations
 
 
-def predict_and_explain(smiles_list, model, names=None, feature_set="B"):
-    """SMILES 리스트에 대해 예측 + 설명 수행."""
+def predict_and_explain(smiles_list, model, names=None, feature_set="B", threshold=0.5):
+    """SMILES 리스트에 대해 예측 + 설명 수행.
+
+    threshold: 양성 분류 임계값. 0.5는 sklearn 기본값.
+    학습된 모델의 model_meta.json에 'classification_threshold' 있으면
+    main()에서 이를 자동 로드해서 전달.
+    """
     if names is None:
         names = [None] * len(smiles_list)
 
@@ -256,11 +261,16 @@ def predict_and_explain(smiles_list, model, names=None, feature_set="B"):
     feature_names = feature_df.columns.tolist()
 
     X = feature_df.values
-    predictions = model.predict(X)
     probabilities = model.predict_proba(X)[:, 1]
+    predictions = (probabilities >= threshold).astype(int)
 
-    # SHAP 설명
-    explanations = explain_with_shap(model, feature_df, feature_names)
+    # SHAP 설명 — 일부 모델 조합(SVM 포함 앙상블 등)에서 실패할 수 있음
+    try:
+        explanations = explain_with_shap(model, feature_df, feature_names)
+    except Exception as e:
+        import warnings
+        warnings.warn(f"SHAP 계산 실패 — 근거 설명 생략: {e}")
+        explanations = [[] for _ in range(len(feature_df))]
 
     # 결과 조합
     results = []
@@ -420,6 +430,16 @@ def main():
         print("오류: 입력된 SMILES가 없습니다.")
         sys.exit(1)
 
+    # 메타에서 threshold 로드 헬퍼
+    def _load_threshold(version: str | None) -> float:
+        try:
+            from src.model_versioning import load_versioned_meta
+
+            meta = load_versioned_meta(version)
+            return float(meta.get("classification_threshold", 0.5))
+        except Exception:
+            return 0.5
+
     # --compare-versions: 두 버전을 동시에 예측하고 비교 출력
     if args.compare_versions:
         versions = [v.strip() for v in args.compare_versions.split(",") if v.strip()]
@@ -428,18 +448,23 @@ def main():
             sys.exit(1)
 
         per_version: dict[str, list] = {}
+        per_threshold: dict[str, float] = {}
         for v in versions:
             m = load_model(version=v)
+            t = _load_threshold(v)
+            per_threshold[v] = t
             per_version[v] = predict_and_explain(
-                smiles_list, m, names=names, feature_set=args.feature_set
+                smiles_list, m, names=names, feature_set=args.feature_set, threshold=t
             )
 
         # 비교 테이블 출력
         print(f"\n{'=' * 80}")
         print(f"  버전 비교: {' vs '.join('v' + v for v in versions)}")
         print(f"{'=' * 80}")
+        # 헤더에 threshold 정보 표시
+        version_label = lambda v: f"v{v} (t={per_threshold[v]:.2f})"
         header = f"{'#':<4}{'Name':<25}{'SMILES (앞 30자)':<35}" + "".join(
-            f"v{v}".ljust(15) for v in versions
+            version_label(v).ljust(20) for v in versions
         )
         print(header)
         print("-" * len(header))
@@ -451,18 +476,23 @@ def main():
             for v in versions:
                 r = per_version[v][i]
                 if r["prediction"] == -1:
-                    row += "ERR".ljust(15)
+                    row += "ERR".ljust(20)
                 else:
                     label = "독성" if r["prediction"] == 1 else "비독성"
-                    row += f"{label} {r['probability']:.1%}".ljust(15)
+                    row += f"{label} {r['probability']:.1%}".ljust(20)
             print(row)
         return
 
-    # 모델 로드
+    # 모델 로드 + threshold (메타에서)
     model = load_model(args.model, version=args.model_version)
+    threshold = _load_threshold(args.model_version)
+    if threshold != 0.5:
+        print(f"  (모델 메타에서 임계값 {threshold:.2f} 적용 — F1 최적화)")
 
     # 예측 + 설명
-    results = predict_and_explain(smiles_list, model, names=names, feature_set=args.feature_set)
+    results = predict_and_explain(
+        smiles_list, model, names=names, feature_set=args.feature_set, threshold=threshold
+    )
 
     # 마크다운 테이블 출력 (Notion 붙여넣기용)
     if args.format == "md":
