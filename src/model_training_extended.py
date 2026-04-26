@@ -238,6 +238,13 @@ def train(strategy: str = "undersample", version: str | None = None) -> int:
     logger.info("Features: X=%s, y 분포=%s", X.shape, dict(pd.Series(y).value_counts()))
 
     models = get_models()
+    # 큰 데이터셋(>5000)에서는 SVM/NN 스킵 (O(n²) — 너무 느림, 앙상블에 안 쓰임)
+    if len(X) > 5000:
+        slow = [n for n in list(models.keys()) if n in ("SVM (RBF)", "Neural Network")]
+        for n in slow:
+            logger.info("%s 스킵 (큰 데이터셋, n=%d)", n, len(X))
+            models.pop(n, None)
+
     all_results: dict[str, dict] = {}
     for name, model in models.items():
         logger.info("%s 학습 중 (10-fold CV)...", name)
