@@ -8,7 +8,7 @@
 $ErrorActionPreference = "Stop"
 
 $VenvDir = ".venv"
-$RequiredVersions = @("3.11", "3.10", "3.12", "3.13")
+$RequiredVersions = @("3.11", "3.10", "3.12")
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
