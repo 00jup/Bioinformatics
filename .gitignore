@@ -26,14 +26,11 @@ data/test/
 # Marketed drugs collection (large data)
 data/marketed_drugs/
 
-# Models (large files)
-models/*.pkl
-
-# Versioned models (large files, regenerable)
-models/v*/
-models/latest.txt
-models/VERSIONS.md
+# Models — 학습된 모델도 저장소에 함께 포함 (Windows 등에서 즉시 inference 가능)
 models/model_meta.json.legacy
+# v1.4.0, v1.5.0 은 GitHub 100MB 제한 초과 → repo 미포함 (필요 시 별도 전달)
+models/v1.4.0/
+models/v1.5.0/
 
 # Jupyter
 .ipynb_checkpoints/
