@@ -19,8 +19,7 @@ DILIRANK_FDA_URL = "https://www.fda.gov/media/113052/download?attachment"
 
 # PubChem name → property
 PUBCHEM_NAME_URL = (
-    "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{}/"
-    "property/InChIKey,SMILES/JSON"
+    "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{}/property/InChIKey,SMILES/JSON"
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -33,9 +32,20 @@ def _normalize_name(name: str) -> str:
     n = name.lower().strip()
     # 흔한 salt/형태 접미사 제거
     suffixes = [
-        " hydrochloride", " sulfate", " sodium", " potassium", " calcium",
-        " phosphate", " maleate", " citrate", " fumarate", " hydrobromide",
-        " mesylate", " tartrate", " acetate", " hcl",
+        " hydrochloride",
+        " sulfate",
+        " sodium",
+        " potassium",
+        " calcium",
+        " phosphate",
+        " maleate",
+        " citrate",
+        " fumarate",
+        " hydrobromide",
+        " mesylate",
+        " tartrate",
+        " acetate",
+        " hcl",
     ]
     for s in suffixes:
         if n.endswith(s):

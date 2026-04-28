@@ -7,7 +7,6 @@ import datetime as dt
 import hashlib
 import json
 import logging
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -48,9 +47,7 @@ def _load_combined_dataset(strategy: str = "undersample", ratio: int = 5) -> pd.
     hepatotoxic_all_path = DATA_DIR / "marketed_drugs" / "hepatotoxic" / "hepatotoxic_all.csv"
 
     if not marketed_clean_path.exists():
-        raise FileNotFoundError(
-            f"{marketed_clean_path} 없음 — `make collect-marketed` 먼저 실행"
-        )
+        raise FileNotFoundError(f"{marketed_clean_path} 없음 — `make collect-marketed` 먼저 실행")
 
     marketed_clean = pd.read_csv(marketed_clean_path)
 
@@ -98,9 +95,7 @@ def _load_combined_dataset(strategy: str = "undersample", ratio: int = 5) -> pd.
                 }
             )
         else:
-            hepa_rows = pd.DataFrame(
-                columns=["smiles", "label", "inchi_key", "source_label"]
-            )
+            hepa_rows = pd.DataFrame(columns=["smiles", "label", "inchi_key", "source_label"])
 
     pos_keys = tdc_keys | set(hepa_rows["inchi_key"]) - {""}
 
@@ -124,9 +119,7 @@ def _load_combined_dataset(strategy: str = "undersample", ratio: int = 5) -> pd.
     if strategy == "undersample":
         target_neg = max(pos_count * ratio, pos_count + 50)
         if neg_count > target_neg:
-            neg_sampled = combined[combined["label"] == 0].sample(
-                n=target_neg, random_state=42
-            )
+            neg_sampled = combined[combined["label"] == 0].sample(n=target_neg, random_state=42)
             combined = (
                 pd.concat([combined[combined["label"] == 1], neg_sampled], ignore_index=True)
                 .sample(frac=1, random_state=42)
@@ -231,10 +224,10 @@ def _generate_comparison_md(
 
 | Metric    | v{prev_version} | v{new_version} | Δ |
 |-----------|-----|-----|---|
-| AUC       | {float(prev.get('auc', 0)):.4f} | {float(new['auc']):.4f} | {delta_auc:+.4f} |
-| F1        | {float(prev.get('f1', 0)):.4f} | {float(new['f1']):.4f} | {delta_f1:+.4f} |
-| Precision | {float(prev.get('precision', 0)):.4f} | {float(new['precision']):.4f} | {delta_p:+.4f} |
-| Recall    | {float(prev.get('recall', 0)):.4f} | {float(new['recall']):.4f} | {delta_r:+.4f} |
+| AUC       | {float(prev.get("auc", 0)):.4f} | {float(new["auc"]):.4f} | {delta_auc:+.4f} |
+| F1        | {float(prev.get("f1", 0)):.4f} | {float(new["f1"]):.4f} | {delta_f1:+.4f} |
+| Precision | {float(prev.get("precision", 0)):.4f} | {float(new["precision"]):.4f} | {delta_p:+.4f} |
+| Recall    | {float(prev.get("recall", 0)):.4f} | {float(new["recall"]):.4f} | {delta_r:+.4f} |
 
 생성 시각: {dt.datetime.now().astimezone().isoformat()}
 """
@@ -271,9 +264,7 @@ def train(strategy: str = "undersample", version: str | None = None) -> int:
         all_results[name] = results
         logger.info("  %s CV AUC: %.4f ± %.4f", name, results["auc"]["mean"], results["auc"]["std"])
 
-    sorted_models = sorted(
-        all_results.items(), key=lambda x: x[1]["auc"]["mean"], reverse=True
-    )
+    sorted_models = sorted(all_results.items(), key=lambda x: x[1]["auc"]["mean"], reverse=True)
     top_names = [name for name, _ in sorted_models[:3]]
     final_model, final_name = tune_and_build_ensemble(X, y, top_names, models)
 
@@ -293,9 +284,7 @@ def train(strategy: str = "undersample", version: str | None = None) -> int:
     logger.info("Threshold tuning: best=%.3f (F1=%.4f)", best_t, best_f1)
 
     cv_serializable = {
-        name: {
-            k: {"mean": float(v["mean"]), "std": float(v["std"])} for k, v in res.items()
-        }
+        name: {k: {"mean": float(v["mean"]), "std": float(v["std"])} for k, v in res.items()}
         for name, res in all_results.items()
     }
 

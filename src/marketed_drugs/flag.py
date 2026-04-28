@@ -31,9 +31,7 @@ def flag_hepatotoxic(
     out["in_tdc_dili_pos"] = out["inchi_key"].isin(tdc_pos_inchikeys).astype(int)
 
     in_dili_hepatotoxic = out["dilirank_category"].isin(HEPATOTOXIC_CATEGORIES)
-    out["known_hepatotoxic"] = (
-        in_dili_hepatotoxic | (out["in_tdc_dili_pos"] == 1)
-    ).astype(int)
+    out["known_hepatotoxic"] = (in_dili_hepatotoxic | (out["in_tdc_dili_pos"] == 1)).astype(int)
 
     logger.info(
         "Flag: %d/%d hepatotoxic (DILIrank match=%d, TDC=%d)",

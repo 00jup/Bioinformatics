@@ -269,6 +269,7 @@ def predict_and_explain(smiles_list, model, names=None, feature_set="B", thresho
         explanations = explain_with_shap(model, feature_df, feature_names)
     except Exception as e:
         import warnings
+
         warnings.warn(f"SHAP 계산 실패 — 근거 설명 생략: {e}")
         explanations = [[] for _ in range(len(feature_df))]
 
@@ -461,8 +462,11 @@ def main():
         print(f"\n{'=' * 80}")
         print(f"  버전 비교: {' vs '.join('v' + v for v in versions)}")
         print(f"{'=' * 80}")
+
         # 헤더에 threshold 정보 표시
-        version_label = lambda v: f"v{v} (t={per_threshold[v]:.2f})"
+        def version_label(v: str) -> str:
+            return f"v{v} (t={per_threshold[v]:.2f})"
+
         header = f"{'#':<4}{'Name':<25}{'SMILES (앞 30자)':<35}" + "".join(
             version_label(v).ljust(20) for v in versions
         )

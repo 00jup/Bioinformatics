@@ -12,9 +12,7 @@ from src.marketed_drugs._http import fetch_bytes, fetch_text
 
 logger = logging.getLogger(__name__)
 
-DRUGBANK_OPEN_DATA_URL = (
-    "https://go.drugbank.com/releases/latest/downloads/all-drugbank-vocabulary"
-)
+DRUGBANK_OPEN_DATA_URL = "https://go.drugbank.com/releases/latest/downloads/all-drugbank-vocabulary"
 
 
 def _read_csv_from_zip_or_text(content: bytes | str) -> pd.DataFrame:

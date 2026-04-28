@@ -138,9 +138,7 @@ def migrate() -> int:
         shutil.copy2(legacy_meta_path, MODELS_DIR / "model_meta.json.legacy")
 
     new_meta = _backfill_meta(legacy_meta)
-    (target / "model_meta.json").write_text(
-        json.dumps(new_meta, indent=2, ensure_ascii=False)
-    )
+    (target / "model_meta.json").write_text(json.dumps(new_meta, indent=2, ensure_ascii=False))
 
     (MODELS_DIR / "latest.txt").write_text("1.0.0")
 

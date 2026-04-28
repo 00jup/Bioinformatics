@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import gzip
-import io
 import logging
 import re
 import time
 from pathlib import Path
-from urllib.parse import quote
 
 import pandas as pd
 from tqdm import tqdm
@@ -21,8 +19,7 @@ SIDER_SE_URL = "http://sideeffects.embl.de/media/download/meddra_all_se.tsv.gz"
 SIDER_DRUGS_URL = "http://sideeffects.embl.de/media/download/drug_names.tsv"
 
 PUBCHEM_PROP_URL = (
-    "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{}/property/"
-    "SMILES,InChIKey,Title/JSON"
+    "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{}/property/SMILES,InChIKey,Title/JSON"
 )
 
 # 간 관련 부작용 키워드 (대소문자 무시)
@@ -108,9 +105,7 @@ def find_liver_drugs(se_path: Path, drugs_path: Path) -> pd.DataFrame:
     pt = se[se["type"] == "PT"].copy()
 
     # 간 관련 필터
-    liver_mask = pt["side_effect"].fillna("").apply(
-        lambda s: bool(LIVER_RE.search(s))
-    )
+    liver_mask = pt["side_effect"].fillna("").apply(lambda s: bool(LIVER_RE.search(s)))
     liver_pt = pt[liver_mask].copy()
     logger.info(
         "간 관련 PT entries: %d (고유 부작용 %d)",
@@ -172,9 +167,7 @@ def fetch_smiles_for_cids(cids: list[int]) -> pd.DataFrame:
             "cid": df["CID"].astype(int),
             "name_pubchem": df["Title"] if "Title" in df.columns else "",
             "smiles": smiles_col.fillna("").astype(str),
-            "inchi_key": df["InChIKey"].fillna("").astype(str)
-            if "InChIKey" in df.columns
-            else "",
+            "inchi_key": df["InChIKey"].fillna("").astype(str) if "InChIKey" in df.columns else "",
         }
     )
 
@@ -234,13 +227,7 @@ def collect_sider_hepatotoxic(
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-    out = (
-        PROJECT_ROOT
-        / "data"
-        / "marketed_drugs"
-        / "hepatotoxic"
-        / "sider_hepatotoxic.csv"
-    )
+    out = PROJECT_ROOT / "data" / "marketed_drugs" / "hepatotoxic" / "sider_hepatotoxic.csv"
     df = collect_sider_hepatotoxic(out)
     return 0 if not df.empty else 1
 

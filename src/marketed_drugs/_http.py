@@ -41,9 +41,7 @@ def get_session() -> requests_cache.CachedSession:
 @retry(
     stop=stop_after_attempt(5),
     wait=wait_exponential(multiplier=2, min=4, max=60),
-    retry=retry_if_exception_type(
-        (requests.ConnectionError, requests.Timeout, requests.HTTPError)
-    ),
+    retry=retry_if_exception_type((requests.ConnectionError, requests.Timeout, requests.HTTPError)),
     reraise=True,
 )
 def fetch_json(url: str, params: dict[str, Any] | None = None, timeout: int = 30) -> Any:
@@ -57,9 +55,7 @@ def fetch_json(url: str, params: dict[str, Any] | None = None, timeout: int = 30
 @retry(
     stop=stop_after_attempt(5),
     wait=wait_exponential(multiplier=2, min=4, max=60),
-    retry=retry_if_exception_type(
-        (requests.ConnectionError, requests.Timeout, requests.HTTPError)
-    ),
+    retry=retry_if_exception_type((requests.ConnectionError, requests.Timeout, requests.HTTPError)),
     reraise=True,
 )
 def fetch_text(url: str, params: dict[str, Any] | None = None, timeout: int = 60) -> str:
@@ -73,9 +69,7 @@ def fetch_text(url: str, params: dict[str, Any] | None = None, timeout: int = 60
 @retry(
     stop=stop_after_attempt(5),
     wait=wait_exponential(multiplier=2, min=4, max=60),
-    retry=retry_if_exception_type(
-        (requests.ConnectionError, requests.Timeout, requests.HTTPError)
-    ),
+    retry=retry_if_exception_type((requests.ConnectionError, requests.Timeout, requests.HTTPError)),
     reraise=True,
 )
 def fetch_bytes(url: str, params: dict[str, Any] | None = None, timeout: int = 120) -> bytes:

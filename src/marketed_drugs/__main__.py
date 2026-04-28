@@ -47,11 +47,7 @@ SOURCES = {
 }
 
 # 환경변수로 일부 소스 비활성화 가능 (예: SKIP_SOURCES=kegg,inxight)
-SKIPPED = set(
-    s.strip().lower()
-    for s in os.environ.get("SKIP_SOURCES", "").split(",")
-    if s.strip()
-)
+SKIPPED = set(s.strip().lower() for s in os.environ.get("SKIP_SOURCES", "").split(",") if s.strip())
 
 
 def collect_one(name: str, force: bool = False) -> pd.DataFrame | None:
@@ -118,9 +114,7 @@ def run_pipeline(skip_cache: bool = False, only_source: str | None = None) -> in
 
     dilirank_path = REFERENCE_DIR / "dilirank.csv"
     if not dilirank_path.exists():
-        logger.warning(
-            "DILIrank CSV 없음 → 빈 DF 사용. %s에 수동 다운로드 필요.", dilirank_path
-        )
+        logger.warning("DILIrank CSV 없음 → 빈 DF 사용. %s에 수동 다운로드 필요.", dilirank_path)
         dilirank_df = pd.DataFrame(
             columns=["LTKBID", "Compound Name", "Severity Class", "InChIKey"]
         )
@@ -128,11 +122,7 @@ def run_pipeline(skip_cache: bool = False, only_source: str | None = None) -> in
         dilirank_df = flag.load_dilirank(str(dilirank_path))
 
     tdc_train_path = PROJECT_ROOT / "data" / "train" / "dili_train.csv"
-    tdc_pos = (
-        flag.load_tdc_pos_inchikeys(str(tdc_train_path))
-        if tdc_train_path.exists()
-        else set()
-    )
+    tdc_pos = flag.load_tdc_pos_inchikeys(str(tdc_train_path)) if tdc_train_path.exists() else set()
     flagged = flag.flag_hepatotoxic(merged, dilirank_df, tdc_pos)
 
     split.split_by_hepatotoxic(flagged, DATA_ROOT)

@@ -37,23 +37,21 @@ def split_by_hepatotoxic(df: pd.DataFrame, output_root: Path) -> dict[str, Path]
 
     # hepatotoxic 폴더에 출처별 breakdown CSV도 추가 (분석 편의)
     if not hepa.empty:
-        breakdown = (
-            pd.DataFrame(
-                {
-                    "category": [
-                        "DILIrank vMost-DILI-Concern",
-                        "DILIrank vLess-DILI-Concern",
-                        "TDC DILI Y=1 매칭",
-                        "전체 hepatotoxic (중복 제외)",
-                    ],
-                    "count": [
-                        int((hepa["dilirank_category"] == "vMost-DILI-Concern").sum()),
-                        int((hepa["dilirank_category"] == "vLess-DILI-Concern").sum()),
-                        int((hepa["in_tdc_dili_pos"] == 1).sum()),
-                        len(hepa),
-                    ],
-                }
-            )
+        breakdown = pd.DataFrame(
+            {
+                "category": [
+                    "DILIrank vMost-DILI-Concern",
+                    "DILIrank vLess-DILI-Concern",
+                    "TDC DILI Y=1 매칭",
+                    "전체 hepatotoxic (중복 제외)",
+                ],
+                "count": [
+                    int((hepa["dilirank_category"] == "vMost-DILI-Concern").sum()),
+                    int((hepa["dilirank_category"] == "vLess-DILI-Concern").sum()),
+                    int((hepa["in_tdc_dili_pos"] == 1).sum()),
+                    len(hepa),
+                ],
+            }
         )
         breakdown.to_csv(hepa_dir / "breakdown.csv", index=False)
 

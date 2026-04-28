@@ -129,7 +129,5 @@ def filter_withdrawn(
     is_withdrawn = df["inchi_key"].isin(withdrawn_keys)
     kept = df[~is_withdrawn].reset_index(drop=True)
     removed = df[is_withdrawn].reset_index(drop=True)
-    logger.info(
-        "Withdrawn 제외: %d → %d (제거 %d)", len(df), len(kept), len(removed)
-    )
+    logger.info("Withdrawn 제외: %d → %d (제거 %d)", len(df), len(kept), len(removed))
     return kept, removed
