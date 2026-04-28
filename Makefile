@@ -85,8 +85,8 @@ init-py: ## Windows: py launcher로 패키지 직접 설치 (venv 없음)
 
 ifeq ($(DETECTED_OS),Windows)
 init-venv:
-	@echo Detecting Python via py launcher (3.11 -^> 3.10 -^> 3.12)...
-	py -3.11 -m venv $(VENV_DIR) || py -3.10 -m venv $(VENV_DIR) || py -3.12 -m venv $(VENV_DIR)
+	@echo Detecting Python via py launcher (3.11 -^> 3.10 -^> 3.12 -^> 3.13)...
+	py -3.11 -m venv $(VENV_DIR) || py -3.10 -m venv $(VENV_DIR) || py -3.12 -m venv $(VENV_DIR) || py -3.13 -m venv $(VENV_DIR)
 	$(VENV_BIN)/python$(EXE) -m pip install --upgrade pip
 	$(VENV_BIN)/python$(EXE) -m pip install -r requirements.txt
 	$(VENV_BIN)/python$(EXE) scripts/install_hooks.py
@@ -96,13 +96,13 @@ init-venv:
 	@echo  활성화 (PowerShell): $(VENV_BIN)\Activate.ps1
 	@echo ========================================
 else
-init-venv: ## venv 환경 생성 및 패키지 설치 (python 3.10/3.11/3.12 필요)
-	@VENV_PY="$$(command -v python3.10 2>/dev/null || command -v python3.11 2>/dev/null || command -v python3.12 2>/dev/null)"; \
+init-venv: ## venv 환경 생성 및 패키지 설치 (python 3.10/3.11/3.12/3.13 지원)
+	@VENV_PY="$$(command -v python3.11 2>/dev/null || command -v python3.12 2>/dev/null || command -v python3.10 2>/dev/null || command -v python3.13 2>/dev/null)"; \
 	if [ -z "$$VENV_PY" ]; then \
-		echo "❌ python3.10 / 3.11 / 3.12 중 하나가 필요합니다."; \
-		echo "   설치 예시 (macOS): brew install python@3.11"; \
-		echo "   설치 예시 (Ubuntu): sudo apt install python3.11 python3.11-venv"; \
-		echo "   ⚠ 3.13은 일부 의존성 (pandas/rdkit 등) wheel 미배포로 미지원."; \
+		echo "❌ python3.10 / 3.11 / 3.12 / 3.13 중 하나가 필요합니다."; \
+		echo "   설치 예시 (macOS):  brew install python@3.12"; \
+		echo "   설치 예시 (Windows): winget install Python.Python.3.12"; \
+		echo "   설치 예시 (Ubuntu):  sudo apt install python3.12 python3.12-venv"; \
 		exit 1; \
 	fi; \
 	echo "✓ 사용할 Python: $$VENV_PY"; \

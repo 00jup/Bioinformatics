@@ -14,10 +14,22 @@ SMILES 입력
 
 ## 설치
 
+지원 Python: 3.10 / 3.11 / 3.12 / 3.13
+
 ```bash
-make init
+make init-venv          # venv 자동 생성 (3.10~3.13 자동 감지)
+source .venv/bin/activate
+
+# 또는 conda
+make init-conda
 conda activate bioinfo
 ```
+
+> 💡 데이터 새로 받거나 (TDC), 개발 (lint/test) 하려면:
+> ```bash
+> pip install -r requirements-dev.txt
+> ```
+> PyTDC가 옛 sklearn 핀을 강제해서 일반 의존성에서 분리. 평소엔 깔 필요 없음.
 
 ## 사용법
 

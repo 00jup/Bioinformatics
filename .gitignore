@@ -20,6 +20,8 @@ data/processed/
 data/train/
 data/validation/
 data/test/
+# 단, TDC DILI seed (25KB)는 git에 포함 — 재다운로드 없이 즉시 학습 가능하도록
+!data/raw/tdc_dili_raw.csv
 
 # Marketed drugs collection (large data)
 data/marketed_drugs/

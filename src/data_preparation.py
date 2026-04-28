@@ -21,7 +21,14 @@ PROCESSED_DIR = os.path.join(PROJECT_ROOT, "data", "processed")
 
 def download_tdc_dili():
     """TDC에서 DILI 데이터셋을 다운로드하고 raw 폴더에 저장."""
-    from tdc.single_pred import Tox
+    try:
+        from tdc.single_pred import Tox
+    except ImportError as e:
+        raise ImportError(
+            "PyTDC 가 깔려 있지 않습니다. 데이터 재다운로드 시에만 필요합니다.\n"
+            "  pip install -r requirements-dev.txt\n"
+            "(TDC raw 데이터는 git 에 25KB 로 포함되어 있어 보통 재다운로드 불필요)"
+        ) from e
 
     print("TDC DILI 데이터셋 다운로드 중...")
     data = Tox(name="DILI")
