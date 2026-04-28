@@ -14,17 +14,16 @@ env/
 # Conda
 .conda/
 
-# Data (large files)
-# TDC DILI seed (25KB) 만 예외 — 재다운로드 없이 즉시 학습 가능하도록
+# Data
+# 학습/예측에 필요한 핵심 데이터는 git 포함 — clone 즉시 학습/예측 가능하도록
+# reference 캐시 (DILIrank Excel/ChEMBL 등 19MB) 만 제외 (재다운로드 가능)
 data/raw/*
 !data/raw/tdc_dili_raw.csv
-data/processed/
-data/train/
-data/validation/
-data/test/
 
-# Marketed drugs collection (large data)
-data/marketed_drugs/
+# marketed_drugs: 핵심 정제 데이터만 포함, 캐시/원본은 제외
+data/marketed_drugs/raw/
+data/marketed_drugs/processed/
+data/marketed_drugs/reference/
 
 # Models — 학습된 모델도 저장소에 함께 포함 (Windows 등에서 즉시 inference 가능)
 models/model_meta.json.legacy
