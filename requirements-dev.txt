@@ -12,7 +12,8 @@
 
 # 데이터 재다운로드용 (PyTDC가 옛 sklearn==1.2.2 핀 강제 → Python 3.13 호환 안 됨)
 # 데이터 새로 받을 때만 깔고 평소엔 빼는 게 좋음
-PyTDC>=0.4.0
+# Windows 는 transitive deps (tiledbsoma 등) 빌드 실패하므로 자동 스킵
+PyTDC>=0.4.0; sys_platform != "win32"
 
 # 개발 도구
 ruff
