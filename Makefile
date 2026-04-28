@@ -34,7 +34,7 @@ else
     ENV_NAME := conda
 endif
 
-.PHONY: init init-conda init-venv init-py init-update format lint check data features train validate test predict all clean clean-env help collect-marketed collect-marketed-clean validate-marketed migrate-v1 train-extended test-extended pytest pytest-fast
+.PHONY: init init-conda init-venv init-py init-update format lint check data features train validate test predict predict-sample predict-sample-md predict-compare all clean clean-env help collect-marketed collect-marketed-clean validate-marketed migrate-v1 train-extended test-extended pytest pytest-fast
 
 ## ──────────────────────────────────────────────
 ## 환경 설정
@@ -170,6 +170,17 @@ evaluate_on_set(model, X_test, y_test, 'Test')"
 
 predict: ## 예측 (usage: make predict INPUT=data/sample_input.csv)
 	$(PYTHON) src/predict.py -f $(INPUT) $(if $(OUTPUT),-o $(OUTPUT)) $(if $(FORMAT),--format $(FORMAT))
+
+predict-sample: ## 샘플 CSV (data/sample_input.csv) 로 빠른 예측 데모
+	$(PYTHON) src/predict.py -f data/sample_input.csv
+
+predict-sample-md: ## 샘플 예측을 마크다운 표로 저장 (results/sample_prediction.md)
+	@mkdir -p results
+	$(PYTHON) src/predict.py -f data/sample_input.csv --format md -o results/sample_prediction.md
+	@echo "✓ 저장됨: results/sample_prediction.md"
+
+predict-compare: ## 샘플 데이터로 v1.0.0 vs v1.3.0 모델 비교
+	$(PYTHON) src/predict.py -f data/sample_input.csv --compare-versions 1.0.0,1.3.0
 
 all: data features train ## 전체 파이프라인 (data → features → train + validation)
 
