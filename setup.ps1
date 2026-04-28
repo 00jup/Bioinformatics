@@ -8,7 +8,7 @@
 $ErrorActionPreference = "Stop"
 
 $VenvDir = ".venv"
-$RequiredVersions = @("3.10", "3.11", "3.12")
+$RequiredVersions = @("3.11", "3.10", "3.12", "3.13")
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -57,12 +57,12 @@ if (-not $PyArgs) {
 
 if ($null -eq $PyArgs) {
     Write-Host ""
-    Write-Host "❌ Python 3.10 / 3.11 / 3.12 중 하나가 필요합니다." -ForegroundColor Red
+    Write-Host "❌ Python 3.10 / 3.11 / 3.12 / 3.13 중 하나가 필요합니다." -ForegroundColor Red
     Write-Host ""
     Write-Host "  설치 방법 (권장):"
-    Write-Host "    1. https://www.python.org/downloads/release/python-31011/"
+    Write-Host "    1. https://www.python.org/downloads/"
     Write-Host "       'Add python.exe to PATH' 체크 + py launcher 함께 설치"
-    Write-Host "    2. 또는 winget install Python.Python.3.11"
+    Write-Host "    2. 또는 winget install Python.Python.3.13"
     exit 1
 }
 
