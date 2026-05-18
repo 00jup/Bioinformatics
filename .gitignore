@@ -49,3 +49,7 @@ Thumbs.db
 # Results (regenerable)
 results/figures/*.png
 results/comparison_*.md
+
+# Markdown 문서는 git 추적 제외 (README.md 만 예외)
+*.md
+!README.md
