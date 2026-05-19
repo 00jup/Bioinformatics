@@ -55,9 +55,25 @@ python src/predict.py "CC(=O)Oc1ccccc1C(=O)O" "CC(=O)Nc1ccc(O)cc1"
 # CSV (Name, SMILES 컬럼 자동 탐지)
 python src/predict.py -f data/sample_input.csv
 
-# Notion 붙여넣기용 마크다운 테이블
-python src/predict.py -f data/sample_input.csv --format md -o result.md
+# 샘플 데이터로 빠른 데모
+make predict-sample
 ```
+
+### 평가셋 100개 한 번에 예측 (CSV 결과)
+
+교수님이 주신 평가용 데이터(SMILES 100개 등)를 한 번에 예측하고 CSV로 저장합니다.
+
+```bash
+# 1) 평가 데이터를 data/test/professor_test.csv 로 저장 (컬럼: Name,SMILES)
+# 2) 실행
+make predict-test
+```
+
+- 콘솔: 항목별 예측 + `독성 N개 / 비독성 N개` 요약
+- CSV: `results/predictions_professor_test.csv`
+  (컬럼: `Name, SMILES, prediction(0/1/-1), label, probability, top_reasons`)
+- 입력 N개 = 출력 N행. SMILES 변환 실패 행은 `prediction=-1`로 기록됩니다.
+- 파일명이 다르면: `make predict-test FILE=data/test/다른이름.csv`
 
 ## 워크플로우
 
@@ -131,7 +147,10 @@ models/
   model_meta.json          # 모델 메타데이터
 data/
   sample_input.csv         # 예측용 샘플 입력 파일
-results/figures/           # ROC curve, Confusion matrix
+  test/professor_test.csv  # 평가셋 입력 (make predict-test)
+results/
+  figures/                 # ROC curve, Confusion matrix
+  predictions_*.csv         # make predict-test 예측 결과
 ```
 
 ## Make 명령어
@@ -146,6 +165,10 @@ results/figures/           # ROC curve, Confusion matrix
 | `make validate` | Validation set 재평가 (파라미터 수정 후 확인용) |
 | `make test` | Test set 최종 평가 (마지막에 1번만) |
 | `make predict` | 예측 (`make predict INPUT=data/sample_input.csv`) |
+| `make predict-sample` | 샘플 데이터로 빠른 예측 데모 |
+| `make predict-test` | 평가셋 100개 예측 → `results/` CSV 저장 |
 | `make format` | ruff 코드 포맷팅 |
 | `make lint` | ruff 린트 검사 |
+| `make check` | 포맷 + 린트 검사 |
 | `make clean` | 생성 파일 정리 |
+| `make clean-env` | 가상환경 삭제 |

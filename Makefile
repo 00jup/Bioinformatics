@@ -34,7 +34,7 @@ else
     ENV_NAME := conda
 endif
 
-.PHONY: init init-conda init-venv init-py init-update format lint check data features train validate test predict predict-sample predict-sample-md predict-compare all clean clean-env help collect-marketed collect-marketed-clean validate-marketed migrate-v1 train-extended test-extended pytest pytest-fast
+.PHONY: init init-conda init-venv init-py init-update format lint check data features train validate test predict predict-sample predict-test all clean clean-env
 
 ## ──────────────────────────────────────────────
 ## 환경 설정
@@ -169,18 +169,21 @@ X_test, y_test = load_split_data('test', feature_set='B'); \
 evaluate_on_set(model, X_test, y_test, 'Test')"
 
 predict: ## 예측 (usage: make predict INPUT=data/sample_input.csv)
-	$(PYTHON) src/predict.py -f $(INPUT) $(if $(OUTPUT),-o $(OUTPUT)) $(if $(FORMAT),--format $(FORMAT))
+	$(PYTHON) src/predict.py -f $(INPUT) $(if $(OUTPUT),-o $(OUTPUT))
 
 predict-sample: ## 샘플 CSV (data/sample_input.csv) 로 빠른 예측 데모
 	$(PYTHON) src/predict.py -f data/sample_input.csv
 
-predict-sample-md: ## 샘플 예측을 마크다운 표로 저장 (results/sample_prediction.md)
-	@mkdir -p results
-	$(PYTHON) src/predict.py -f data/sample_input.csv --format md -o results/sample_prediction.md
-	@echo "✓ 저장됨: results/sample_prediction.md"
+# predict-test: 교수님 평가셋 예측. data/test/professor_test.csv (Name,SMILES) 를
+#   넣고 `make predict-test` → 콘솔 요약 + results/ 에 CSV 저장.
+#   다른 파일명: make predict-test FILE=data/test/xxx.csv
+TEST_INPUT ?= data/test/professor_test.csv
+TEST_OUTPUT ?= results/predictions_professor_test.csv
 
-predict-compare: ## 샘플 데이터로 v1.0.0 vs v1.3.0 모델 비교
-	$(PYTHON) src/predict.py -f data/sample_input.csv --compare-versions 1.0.0,1.3.0
+predict-test: ## 교수님 평가셋 예측 (FILE 기본: data/test/professor_test.csv → results/ CSV)
+	@mkdir -p results
+	$(PYTHON) src/predict.py -f $(if $(FILE),$(FILE),$(TEST_INPUT)) \
+		--format csv -o $(if $(OUTPUT),$(OUTPUT),$(TEST_OUTPUT))
 
 all: data features train ## 전체 파이프라인 (data → features → train + validation)
 
@@ -189,7 +192,7 @@ all: data features train ## 전체 파이프라인 (data → features → train 
 ## ──────────────────────────────────────────────
 
 clean: ## 생성된 파일 정리
-	rm -rf data/raw/ data/processed/ data/train/ data/validation/ data/test/ models/*.pkl models/*.json results/figures/*.png
+	rm -rf data/legacy/ models/*.pkl models/*.json results/figures/*.png
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 clean-env: ## 환경 삭제 (현재 활성 환경 기준)
@@ -200,38 +203,3 @@ else ifneq ($(filter py-%,$(ENV_NAME)),)
 else
 	conda env remove -n $(CONDA_ENV)
 endif
-
-help: ## 도움말 출력
-	@echo "OS: $(DETECTED_OS) / 현재 활성 환경: $(ENV_NAME) / PY_VERSION: $(PY_VERSION)"
-	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
-
-## ──────────────────────────────────────────────
-## 시판 약물 수집 + v1.1 학습
-## ──────────────────────────────────────────────
-
-collect-marketed: ## 시판약 수집 파이프라인 (6개 소스 → ~15k SMILES)
-	$(PYTHON) -m src.marketed_drugs
-
-collect-marketed-clean: ## 캐시 모두 삭제 후 재수집
-	rm -rf data/marketed_drugs
-	$(PYTHON) -m src.marketed_drugs
-
-validate-marketed: ## 수집 결과 sanity check
-	$(PYTHON) -m src.marketed_drugs.validate
-
-migrate-v1: ## models/best_model.pkl → models/v1.0.0/ 마이그레이션 (1회성)
-	$(PYTHON) -m src.marketed_drugs.migrate_v1_0_0
-
-train-extended: ## TDC + 시판약으로 v1.1.0 학습 + Validation 평가
-	$(PYTHON) -m src.model_training_extended $(if $(STRATEGY),--strategy $(STRATEGY)) $(if $(VERSION),--version $(VERSION))
-
-test-extended: ## 학습된 v1.1.0 모델 Test set 최종 평가 (1회만)
-	$(PYTHON) -m src.model_training_extended --test-only $(if $(VERSION),--version $(VERSION))
-
-pytest: ## pytest 전체 실행
-	$(PYTHON) -m pytest tests/ -v
-
-pytest-fast: ## unit 테스트만 빠르게
-	$(PYTHON) -m pytest tests/unit -v

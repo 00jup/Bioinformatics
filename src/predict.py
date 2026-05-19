@@ -382,6 +382,42 @@ def format_markdown_table(results):
     return "\n".join(lines)
 
 
+def format_csv(results):
+    """예측 결과를 CSV 문자열로 생성.
+
+    컬럼: Name, SMILES, prediction(0/1/-1), label, probability, top_reasons
+    변환 실패한 SMILES도 prediction=-1 행으로 기록 → 입력 N개 = 출력 N행.
+    """
+    import csv
+    import io
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["Name", "SMILES", "prediction", "label", "probability", "top_reasons"])
+
+    for r in results:
+        name = r.get("name") or ""
+        if name == "nan":
+            name = ""
+
+        if r["prediction"] == -1:
+            writer.writerow([name, r["smiles"], -1, "SMILES 오류", "", ""])
+            continue
+
+        prob = f"{r['probability']:.4f}"
+        reason_parts = []
+        for reason in r["reasons"][:3]:
+            arrow = "+" if reason["shap"] > 0 else "-"
+            reason_parts.append(f"[{arrow}] {reason['display_name']}")
+        reasons_str = "; ".join(reason_parts)
+
+        writer.writerow(
+            [name, r["smiles"], r["prediction"], r["label"], prob, reasons_str]
+        )
+
+    return buf.getvalue()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="DILI 독성 예측 — SMILES 입력 → 예측 + 이유",
@@ -391,7 +427,10 @@ def main():
     parser.add_argument("-f", "--file", default=None, help="SMILES가 담긴 입력 파일")
     parser.add_argument("-o", "--output", default=None, help="결과 저장 파일")
     parser.add_argument(
-        "--format", choices=["text", "md"], default="text", help="출력 형식 (text/md)"
+        "--format",
+        choices=["text", "md", "csv"],
+        default="text",
+        help="출력 형식 (text/md/csv). csv는 콘솔 요약 + CSV 파일 저장",
     )
     parser.add_argument("--model", default=None, help="모델 파일 경로 (직접 지정)")
     parser.add_argument(
@@ -508,7 +547,7 @@ def main():
             print(f"\n결과 저장: {args.output}")
         return
 
-    # 기본 텍스트 출력
+    # 텍스트 콘솔 출력 (text / csv 형식 공통)
     print(f"\n{'=' * 60}")
     print(f"  DILI 독성 예측 결과 ({len(results)}개)")
     print(f"{'=' * 60}")
@@ -530,7 +569,16 @@ def main():
     print(f"\n{'=' * 60}")
 
     # 파일 저장
-    if args.output:
+    if args.format == "csv":
+        out_path = args.output or "results/predictions.csv"
+        out_dir = os.path.dirname(out_path)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        # utf-8-sig: Excel에서 한글이 깨지지 않도록 BOM 포함
+        with open(out_path, "w", newline="", encoding="utf-8-sig") as f:
+            f.write(format_csv(results))
+        print(f"\nCSV 저장: {out_path}")
+    elif args.output:
         with open(args.output, "w") as f:
             f.write("\n\n".join(output_lines) + "\n")
         print(f"\n결과 저장: {args.output}")
