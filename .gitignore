@@ -54,3 +54,15 @@ results/predictions_*.csv
 # Markdown 문서는 git 추적 제외 (README.md 만 예외)
 *.md
 !README.md
+
+# 실험 feature 캐시 — 재생성 가능, Mordred 캐시는 118MB로 GitHub 제한 초과
+data/experiments/feature_cache*.parquet
+data/experiments/.mordred_progress.txt
+
+# 실험 모델 바이너리 — 재생성 가능, 일부 100MB 초과 (메타데이터 json 은 추적)
+models/experiments/*/best_model.pkl
+models/experiments_mordred/*/best_model.pkl
+data/codex/best_model.pkl
+
+# Claude Code 로컬 설정
+.claude/

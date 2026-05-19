@@ -411,9 +411,7 @@ def format_csv(results):
             reason_parts.append(f"[{arrow}] {reason['display_name']}")
         reasons_str = "; ".join(reason_parts)
 
-        writer.writerow(
-            [name, r["smiles"], r["prediction"], r["label"], prob, reasons_str]
-        )
+        writer.writerow([name, r["smiles"], r["prediction"], r["label"], prob, reasons_str])
 
     return buf.getvalue()
 
